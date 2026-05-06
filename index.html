@@ -276,31 +276,15 @@ function startLogin() {
       btn.disabled = false;
       if (tokenResp.error) { onLoginFail(tokenResp.error); return; }
       try {
-        // 取得 userinfo
+        // 取得 userinfo 確認 email
         const res  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',
           { headers:{ Authorization:'Bearer '+tokenResp.access_token } });
         const info = await res.json();
         if (!info.email) { onLoginFail('無法取得帳號'); return; }
-
-        // 取得 id_token（用 credential flow）
-        google.accounts.id.initialize({
-          client_id: CLIENT_ID,
-          callback: (credResp) => {
-            idToken   = credResp.credential;
-            userEmail = info.email;
-            enterApp(info.email);
-          },
-          auto_select: false,
-        });
-        // 用 email hint 靜默取得 id_token
-        google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // prompt 無法顯示時，用 access_token 當暫代 token
-            idToken   = tokenResp.access_token;
-            userEmail = info.email;
-            enterApp(info.email);
-          }
-        });
+        // access_token 直接傳後端用 tokeninfo 驗證
+        idToken   = tokenResp.access_token;
+        userEmail = info.email;
+        enterApp(info.email);
       } catch(e) { btn.disabled=false; onLoginFail('網路錯誤：'+e.message); }
     }
   }).requestAccessToken();
