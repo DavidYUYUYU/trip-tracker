@@ -255,7 +255,7 @@
 <script>
 // ══ 設定區 ══ 換成你自己的值
 const CLIENT_ID  = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
-const API_URL    = 'https://script.google.com/macros/s/AKfycbywFQLw4p9svQKhpOUO4WTz9d90kJ9VrUsyJ_ScoBaY4XET9Cdo_j9kjj9-RJETSahxTg/exec';
+const API_URL    = 'https://script.google.com/macros/s/AKfycbyZ7tgO0nSxvk20RHMa8HH_6minMpqG66kY8XjumI5reDRKdoEFkaXmfACuTg91V-9z1Q/exec';
 
 // ══ 狀態 ══
 let records  = [];
@@ -522,61 +522,127 @@ function setExportLoading(on) {
 async function doExport(type) {
   const m   = document.getElementById('filter-month')?.value || '';
   const cur = settings.currency || 'NT$';
+  const filtered = getFiltered();
+
+  if (!filtered.length) { toast('沒有資料可匯出', true); return; }
   setExportLoading(true);
-  toast(type === 'excel' ? '產生 Excel 中…' : type === 'csv' ? '產生 CSV 中…' : '產生報表中…');
 
-  try {
-    if (type === 'excel') {
-      // 後端回傳 CSV 資料，前端用 SheetJS 轉成真正的 xlsx
-      const res = await api('exportCSV', { month: m });
-      setExportLoading(false);
-      if (!res.ok) { toast('匯出失敗：' + res.error, true); return; }
+  if (type === 'excel') {
+    // ── 完全前端產生 Excel，不需要呼叫後端 ──
+    try {
+      const headers = ['日期','說明','起始里程','結束里程','行駛里程(km)','費率(元/km)',
+                       '里程費用','高鐵費用','ETC費用','停車費','其他費用','總費用'];
+      const dataRows = filtered.map(r =>
+        [r.date, r.desc, r.start, r.end, r.dist, r.rate,
+         r.mile||0, r.hsr||0, r.etc||0, r.park||0, r.other||0, r.total]);
+      const sum = k => filtered.reduce((a,r) => a+(+r[k]||0), 0);
+      const totalRow = ['合計','','','', sum('dist').toFixed(1),'',
+        sum('mile'),sum('hsr'),sum('etc'),sum('park'),sum('other'),sum('total')];
 
-      // 用 SheetJS 從 base64 CSV 建立 xlsx
-      const csvText = new TextDecoder('utf-8').decode(
-        Uint8Array.from(atob(res.base64), c => c.charCodeAt(0))
-      );
-      const wb = XLSX.read(csvText, { type: 'string' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      // 設定欄寬
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows, totalRow]);
       ws['!cols'] = [12,28,12,12,13,12,11,11,11,11,11,12].map(w => ({ wch: w }));
-      const filename = `出差費用紀錄${m ? '_' + m : ''}.xlsx`;
-      XLSX.writeFile(wb, filename);
+      // 標題列粗體
+      headers.forEach((_, i) => {
+        const cell = ws[XLSX.utils.encode_cell({r:0, c:i})];
+        if (cell) cell.s = { font: { bold: true } };
+      });
+      XLSX.utils.book_append_sheet(wb, ws, '出差費用紀錄');
+      XLSX.writeFile(wb, `出差費用紀錄${m?'_'+m:''}.xlsx`);
       toast('✓ Excel 已下載');
-
-    } else if (type === 'csv') {
-      const res = await api('exportCSV', { month: m });
-      setExportLoading(false);
-      if (!res.ok) { toast('匯出失敗：' + res.error, true); return; }
-      b64download(res.base64, res.filename, 'text/csv;charset=utf-8');
-      toast('✓ CSV 已下載');
-
-    } else {
-      // PDF：後端回傳 HTML base64，前端用 Blob URL 開新分頁
-      const res = await api('exportPDF', { month: m, currency: cur });
-      setExportLoading(false);
-      if (!res.ok) { toast('匯出失敗：' + res.error, true); return; }
-
-      const bin  = atob(res.base64);
-      const arr  = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      const blob = new Blob([arr], { type: 'text/html;charset=utf-8' });
-      const url  = URL.createObjectURL(blob);
-      const win  = window.open(url, '_blank');
-      if (!win) {
-        // popup 被擋，改用下載方式
-        const a = document.createElement('a');
-        a.href = url; a.download = `出差費用報表${m ? '_' + m : ''}.html`;
-        a.click();
-        toast('✓ 報表已下載，用瀏覽器開啟後列印');
-      } else {
-        toast('✓ 報表已開啟，請在新頁面列印');
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch(e) {
+      toast('Excel 產生失敗：' + e.message, true);
     }
-  } catch(e) {
     setExportLoading(false);
-    toast('匯出失敗：' + e.message, true);
+
+  } else if (type === 'csv') {
+    // ── 完全前端產生 CSV ──
+    const headers = ['日期','說明','起始里程','結束里程','行駛里程(km)','費率(元/km)',
+                     '里程費用','高鐵費用','ETC費用','停車費','其他費用','總費用'];
+    const rows = filtered.map(r =>
+      [r.date, `"${(r.desc||'').replace(/"/g,'""')}"`, r.start, r.end, r.dist, r.rate,
+       r.mile||0, r.hsr||0, r.etc||0, r.park||0, r.other||0, r.total]);
+    const sum = k => filtered.reduce((a,r) => a+(+r[k]||0), 0);
+    rows.push(['合計','','','', sum('dist').toFixed(1),'',
+      sum('mile'),sum('hsr'),sum('etc'),sum('park'),sum('other'),sum('total')]);
+    const csv  = '\uFEFF' + [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `出差費用紀錄${m?'_'+m:''}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('✓ CSV 已下載');
+    setExportLoading(false);
+
+  } else {
+    // ── PDF：前端直接產生 HTML 並下載，用瀏覽器列印 ──
+    const sum = k => filtered.reduce((a,r) => a+(+r[k]||0), 0);
+    const trRows = filtered.map(r => `<tr>
+      <td>${r.date}</td><td>${r.desc}</td><td>${r.start}→${r.end}（${r.dist}）</td>
+      <td class="r">${r.mile>0?r.mile:''}</td>
+      <td class="r">${r.hsr>0?r.hsr:''}</td>
+      <td class="r">${r.etc>0?r.etc:''}</td>
+      <td class="r">${r.park>0?r.park:''}</td>
+      <td class="r">${r.other>0?r.other:''}</td>
+      <td class="r"><strong>${cur} ${r.total.toLocaleString()}</strong></td>
+    </tr>`).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>出差費用</title>
+<style>
+body{font-family:'Noto Sans TC',sans-serif;padding:28px;font-size:12px}
+h2{font-size:17px;margin-bottom:4px}.meta{color:#666;margin-bottom:16px}
+.stat-row{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.stat{border:1px solid #ddd;border-radius:8px;padding:10px 16px;text-align:center;min-width:90px}
+.sv{font-size:16px;font-weight:bold}.sl{font-size:10px;color:#888;margin-top:3px}
+table{width:100%;border-collapse:collapse}
+th{background:#1a1d27;color:#fff;padding:6px 8px;font-size:11px;text-align:left}
+th.r,td.r{text-align:right}
+td{padding:6px 8px;border-bottom:1px solid #eee;font-size:11px}
+tr:nth-child(even)td{background:#f9f9f9}
+.foot td{font-weight:bold;background:#efefef!important;border-top:2px solid #333}
+.print-btn{margin-top:16px;padding:10px 24px;background:#1a1d27;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer}
+@media print{.print-btn{display:none}}
+</style></head><body>
+<h2>出差費用紀錄</h2>
+<div class="meta">${m?m+' 月份':'全部'} ／ 共 ${filtered.length} 筆</div>
+<div class="stat-row">
+  <div class="stat"><div class="sv">${sum('dist').toFixed(1)}</div><div class="sl">總公里</div></div>
+  <div class="stat"><div class="sv">${cur} ${sum('mile').toLocaleString()}</div><div class="sl">里程費</div></div>
+  <div class="stat"><div class="sv">${cur} ${sum('hsr').toLocaleString()}</div><div class="sl">高鐵費</div></div>
+  <div class="stat"><div class="sv">${cur} ${sum('etc').toLocaleString()}</div><div class="sl">ETC</div></div>
+  <div class="stat"><div class="sv">${cur} ${sum('park').toLocaleString()}</div><div class="sl">停車費</div></div>
+  <div class="stat"><div class="sv">${cur} ${sum('total').toLocaleString()}</div><div class="sl">總費用</div></div>
+</div>
+<table><thead><tr>
+  <th>日期</th><th>說明</th><th>里程(km)</th>
+  <th class="r">里程費</th><th class="r">高鐵</th><th class="r">ETC</th>
+  <th class="r">停車</th><th class="r">其他</th><th class="r">合計</th>
+</tr></thead><tbody>
+${trRows}
+<tr class="foot">
+  <td colspan="2">合計</td><td>${sum('dist').toFixed(1)} km</td>
+  <td class="r">${sum('mile').toLocaleString()}</td>
+  <td class="r">${sum('hsr').toLocaleString()}</td>
+  <td class="r">${sum('etc').toLocaleString()}</td>
+  <td class="r">${sum('park').toLocaleString()}</td>
+  <td class="r">${sum('other').toLocaleString()}</td>
+  <td class="r"><strong>${cur} ${sum('total').toLocaleString()}</strong></td>
+</tr>
+</tbody></table>
+<button class="print-btn" onclick="window.print()">🖨 列印 / 儲存為 PDF</button>
+</body></html>`;
+
+    // 下載成 HTML 檔案，用瀏覽器開啟後列印
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `出差費用報表${m?'_'+m:''}.html`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('✓ 報表已下載，開啟後按「列印」存成 PDF');
+    setExportLoading(false);
   }
 }
 
