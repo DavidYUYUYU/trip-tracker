@@ -254,7 +254,7 @@
 <script>
 // ══ 設定區 ══ 換成你自己的值
 const CLIENT_ID  = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
-const API_URL    = 'https://script.google.com/macros/s/AKfycbyZ7tgO0nSxvk20RHMa8HH_6minMpqG66kY8XjumI5reDRKdoEFkaXmfACuTg91V-9z1Q/exec';
+const API_URL    = 'https://script.google.com/macros/s/AKfycbyrvv5f174TFM5xGI1VPa1mbk72UYNorVmK29uNreoEj9dScfPQXS8YZvtm8SXi9DCJig/exec';
 
 // ══ 狀態 ══
 let records  = [];
@@ -333,14 +333,29 @@ function confirmLogout() {
   document.getElementById('login-status').textContent='已登出，請重新選擇帳號';
 }
 
-// ══ API 呼叫 ══
-async function api(action, extra={}) {
-  const resp = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ action, token: idToken, ...extra })
+// ══ API 呼叫（JSONP 方式，解決 CORS 問題）══
+function api(action, extra={}) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const data   = JSON.stringify(extra);
+    const params = new URLSearchParams({
+      action,
+      token:    idToken,
+      data,
+      callback: cbName
+    });
+    const script  = document.createElement('script');
+    const cleanup = () => { delete window[cbName]; script.remove(); };
+    const timer   = setTimeout(() => { cleanup(); reject(new Error('API 逾時')); }, 30000);
+
+    window[cbName] = (result) => {
+      clearTimeout(timer); cleanup(); resolve(result);
+    };
+
+    script.src    = API_URL + '?' + params.toString();
+    script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('API 載入失敗')); };
+    document.head.appendChild(script);
   });
-  return resp.json();
 }
 
 // ══ 計算 ══
