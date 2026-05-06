@@ -255,7 +255,7 @@
 <script>
 // ══ 設定區 ══ 換成你自己的值
 const CLIENT_ID  = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
-const API_URL    = 'https://script.google.com/macros/s/AKfycbyZ7tgO0nSxvk20RHMa8HH_6minMpqG66kY8XjumI5reDRKdoEFkaXmfACuTg91V-9z1Q/exec';
+const API_URL    = 'https://script.google.com/macros/s/AKfycbxeRJfBnm7YFp2J7oY1jb2UZpddh0XQ8lDwHtaN_q04Bj4AgotZjELebQEMHsBAJH1KUA/exec';
 
 // ══ 狀態 ══
 let records  = [];
@@ -318,27 +318,49 @@ function confirmLogout() {
   document.getElementById('login-status').textContent='已登出，請重新選擇帳號';
 }
 
-// ══ API 呼叫（JSONP 方式，解決 CORS 問題）══
+// ══ API 呼叫（JSONP，相容手機）══
 function api(action, extra={}) {
   return new Promise((resolve, reject) => {
     const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const data   = JSON.stringify(extra);
-    const params = new URLSearchParams({
-      action,
-      token:    idToken,
-      data,
-      callback: cbName
-    });
+
+    // 把 extra 攤平成 URL 參數，避免 JSON 字串過長
+    const params = new URLSearchParams();
+    params.set('action',   action);
+    params.set('token',    idToken);
+    params.set('callback', cbName);
+
+    // extra 裡如果有 record 物件，把每個欄位分開傳
+    if (extra.record) {
+      const r = extra.record;
+      params.set('rec_date',  r.date  || '');
+      params.set('rec_desc',  r.desc  || '');
+      params.set('rec_start', r.start || 0);
+      params.set('rec_end',   r.end   || 0);
+      params.set('rec_dist',  r.dist  || 0);
+      params.set('rec_rate',  r.rate  || 0);
+      params.set('rec_mile',  r.mile  || 0);
+      params.set('rec_hsr',   r.hsr   || 0);
+      params.set('rec_etc',   r.etc   || 0);
+      params.set('rec_park',  r.park  || 0);
+      params.set('rec_other', r.other || 0);
+      params.set('rec_total', r.total || 0);
+    } else {
+      // 其他參數直接放
+      Object.entries(extra).forEach(([k,v]) => {
+        if (v !== undefined && v !== null) params.set(k, v);
+      });
+    }
+
     const script  = document.createElement('script');
     const cleanup = () => { delete window[cbName]; script.remove(); };
-    const timer   = setTimeout(() => { cleanup(); reject(new Error('API 逾時')); }, 30000);
+    const timer   = setTimeout(() => {
+      cleanup();
+      reject(new Error('連線逾時，請檢查網路後重試'));
+    }, 30000);
 
-    window[cbName] = (result) => {
-      clearTimeout(timer); cleanup(); resolve(result);
-    };
-
-    script.src    = API_URL + '?' + params.toString();
-    script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('API 載入失敗')); };
+    window[cbName] = (result) => { clearTimeout(timer); cleanup(); resolve(result); };
+    script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('API 連線失敗')); };
+    script.src = API_URL + '?' + params.toString();
     document.head.appendChild(script);
   });
 }
