@@ -255,7 +255,7 @@
 <script>
 // ══ 設定區 ══ 換成你自己的值
 const CLIENT_ID  = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
-const API_URL    = 'https://script.google.com/macros/s/AKfycbz5vgUH7DAVWAWLwLxzGNzl4M7Ej6dJH1WZ1XLAczOn_zT8kTDo6ClfkA41xGhLp1lyYA/exec';
+const API_URL    = 'https://script.google.com/macros/s/AKfycbzQyACOdS2iRQvfCV2OTtW6qan_LAtsXKINoWxARqJUv9YSLJVUT4EjHjoyjq0SizvpEA/exec';
 
 // ══ 狀態 ══
 let records  = [];
@@ -318,18 +318,40 @@ function confirmLogout() {
   document.getElementById('login-status').textContent='已登出，請重新選擇帳號';
 }
 
-// ══ API 呼叫（JSONP，相容手機）══
+// ══ API 呼叫（自動偵測 Safari，切換 JSONP / fetch）══
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
 function api(action, extra={}) {
+  if (isSafari) {
+    return apiFetch(action, extra);  // Safari 用 fetch
+  } else {
+    return apiJsonp(action, extra);  // Chrome 用 JSONP
+  }
+}
+
+// fetch 模式（Safari）
+function apiFetch(action, extra={}) {
+  const body = { action, token: idToken, ...extra };
+  if (extra.record) body.record = extra.record;
+
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' }, // text/plain 不觸發 preflight
+    body: JSON.stringify(body)
+  })
+  .then(r => r.json())
+  .catch(e => { throw new Error('連線失敗：' + e.message); });
+}
+
+// JSONP 模式（Chrome）
+function apiJsonp(action, extra={}) {
   return new Promise((resolve, reject) => {
     const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-
-    // 把 extra 攤平成 URL 參數，避免 JSON 字串過長
     const params = new URLSearchParams();
     params.set('action',   action);
     params.set('token',    idToken);
     params.set('callback', cbName);
 
-    // extra 裡如果有 record 物件，把每個欄位分開傳
     if (extra.record) {
       const r = extra.record;
       params.set('rec_date',  r.date  || '');
@@ -345,7 +367,6 @@ function api(action, extra={}) {
       params.set('rec_other', r.other || 0);
       params.set('rec_total', r.total || 0);
     } else {
-      // 其他參數直接放
       Object.entries(extra).forEach(([k,v]) => {
         if (v !== undefined && v !== null) params.set(k, v);
       });
@@ -354,12 +375,15 @@ function api(action, extra={}) {
     const script  = document.createElement('script');
     const cleanup = () => { delete window[cbName]; script.remove(); };
     const timer   = setTimeout(() => {
-      cleanup();
-      reject(new Error('連線逾時，請檢查網路後重試'));
+      cleanup(); reject(new Error('連線逾時，請檢查網路後重試'));
     }, 30000);
 
     window[cbName] = (result) => { clearTimeout(timer); cleanup(); resolve(result); };
-    script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('API 連線失敗')); };
+    script.onerror = () => {
+      clearTimeout(timer); cleanup();
+      // JSONP 失敗時自動切換到 fetch 重試
+      apiFetch(action, extra).then(resolve).catch(reject);
+    };
     script.src = API_URL + '?' + params.toString();
     document.head.appendChild(script);
   });
