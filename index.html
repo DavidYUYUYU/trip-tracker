@@ -234,15 +234,15 @@
 <script>
 // ══ 設定 ══
 const CLIENT_ID  = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
-const SHEET_ID   = '1prHsbgvRLq_XcDaRHxKHzRYMi1eQ0ktwQrtJtliRIGY';
-const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
+const SHEET_ID    = '1prHsbgvRLq_XcDaRHxKHzRYMi1eQ0ktwQrtJtliRIGY';
+const SHEETS_API  = 'https://sheets.googleapis.com/v4/spreadsheets';
+const DATA_SHEET  = '出差紀錄'; // 所有人共用一個分頁，用 email 區分
 
 // ══ 狀態 ══
 let records     = [];
 let settings    = { rate:'', currency:'NT$' };
 let userEmail   = '';
 let accessToken = '';
-let sheetName   = ''; // 使用者專屬的 sheet 分頁名稱
 
 // ══ 登入（強制選帳號）══
 function startLogin() {
@@ -263,7 +263,6 @@ function startLogin() {
           { headers:{ Authorization:'Bearer '+accessToken }}).then(r=>r.json());
         if (!info.email) { onLoginFail('無法取得帳號'); return; }
         userEmail  = info.email;
-        sheetName  = info.email.split('@')[0].substring(0,30);
         enterApp(info.email);
       } catch(e) { btn.disabled=false; onLoginFail('網路錯誤：'+e.message); }
     }
@@ -309,7 +308,7 @@ function saveSettingsLocal() {
 function confirmLogout() {
   if (!confirm(`目前登入：${userEmail}\n\n確定登出並切換帳號？`)) return;
   google.accounts.id.disableAutoSelect();
-  records=[]; userEmail=''; accessToken=''; sheetName='';
+  records=[]; userEmail=''; accessToken='';
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('login-status').textContent='已登出，請重新選擇帳號';
@@ -365,57 +364,57 @@ async function getSheetsList() {
 async function ensureUserSheet() {
   try {
     const sheets = await getSheetsList();
-    if (!sheets.includes(sheetName)) {
-      toast('首次使用，建立資料分頁中...');
-      // 建立新分頁
+    if (!sheets.includes(DATA_SHEET)) {
+      // 只有擁有者第一次使用才需要建立，其他人不需要
+      toast('初始化資料分頁中...');
       await sheetsBatchUpdate([{
-        addSheet: { properties: { title: sheetName } }
+        addSheet: { properties: { title: DATA_SHEET } }
       }]);
-      // 等一下再寫入標題，確保分頁已建立
-      await new Promise(r => setTimeout(r, 1000));
-      // 寫入標題列
-      await sheetsAppend(`${sheetName}!A1`, [[
-        'ID','日期','說明',
+      await new Promise(r => setTimeout(r, 800));
+      await sheetsAppend(`${DATA_SHEET}!A1`, [[
+        'ID','Email','日期','說明',
         '起始里程','結束里程','行駛里程(km)','費率(元/km)',
         '里程費用','高鐵費用','ETC費用','停車費','其他費用','總費用','建立時間'
       ]]);
-      toast('✓ 資料分頁建立完成');
+      toast('✓ 初始化完成');
     }
     return true;
   } catch(e) {
-    console.error('建立分頁失敗', e.message);
-    toast('建立分頁失敗：'+e.message, true);
-    return false;
+    // 非擁有者無法新增分頁 → 分頁應該已存在，繼續即可
+    console.log('ensureUserSheet:', e.message);
+    return true;
   }
 }
 
-// ══ 讀取紀錄 ══
+// ══ 讀取紀錄（只讀自己的）══
 async function loadRecords() {
   setSyncing(true);
   try {
-    const data = await sheetsGet(`${sheetName}!A:N`);
+    const data = await sheetsGet(`${DATA_SHEET}!A:O`);
     const rows = data.values || [];
     if (rows.length <= 1) { records = []; }
     else {
-      records = rows.slice(1).map(r => ({
-        id:    r[0]  || '',
-        date:  r[1]  || '',
-        desc:  r[2]  || '',
-        start: +r[3] || 0,
-        end:   +r[4] || 0,
-        dist:  +r[5] || 0,
-        rate:  +r[6] || 0,
-        mile:  +r[7] || 0,
-        hsr:   +r[8] || 0,
-        etc:   +r[9] || 0,
-        park:  +r[10]|| 0,
-        other: +r[11]|| 0,
-        total: +r[12]|| 0,
-      })).filter(r => r.id).reverse();
+      // 欄位：ID, Email, 日期, 說明, 起始, 結束, 里程, 費率, 里程費, 高鐵, ETC, 停車, 其他, 總費, 時間
+      records = rows.slice(1)
+        .filter(r => r[1] === userEmail) // 只顯示自己的
+        .map(r => ({
+          id:    r[0]  || '',
+          date:  r[2]  || '',
+          desc:  r[3]  || '',
+          start: +r[4] || 0,
+          end:   +r[5] || 0,
+          dist:  +r[6] || 0,
+          rate:  +r[7] || 0,
+          mile:  +r[8] || 0,
+          hsr:   +r[9] || 0,
+          etc:   +r[10]|| 0,
+          park:  +r[11]|| 0,
+          other: +r[12]|| 0,
+          total: +r[13]|| 0,
+        })).filter(r => r.id).reverse();
     }
     renderAll();
   } catch(e) {
-    // 400 通常是分頁剛建立還沒 ready，顯示空白就好
     if (e.message.includes('400')) {
       records = []; renderAll();
     } else {
@@ -446,8 +445,8 @@ async function addRecord() {
   btn.disabled=true; btn.textContent='儲存中...';
 
   try {
-    await sheetsAppend(`${sheetName}!A:N`, [[
-      id,date,desc,start,end,dist,rate,mile,hsr,etc,park,other,total,now
+    await sheetsAppend(`${DATA_SHEET}!A:O`, [[
+      id,userEmail,date,desc,start,end,dist,rate,mile,hsr,etc,park,other,total,now
     ]]);
     records.unshift({id,date,desc,start,end,dist,rate,mile,hsr,etc,park,other,total});
     ['trip-desc','odo-start','odo-end','cost-hsr','cost-etc','cost-park','cost-other']
@@ -466,7 +465,7 @@ async function deleteRecord(id) {
   if (!confirm('確定要刪除這筆紀錄？')) return;
   try {
     // 找到該行的行號
-    const data = await sheetsGet(`${sheetName}!A:A`);
+    const data = await sheetsGet(`${DATA_SHEET}!A:A`);
     const rows = data.values || [];
     let rowIndex = -1;
     for (let i=1; i<rows.length; i++) {
@@ -477,7 +476,7 @@ async function deleteRecord(id) {
     // 取得 sheetId
     const sheets = await fetch(`${SHEETS_API}/${SHEET_ID}?fields=sheets.properties`,
       {headers:{Authorization:'Bearer '+accessToken}}).then(r=>r.json());
-    const sheet  = sheets.sheets.find(s=>s.properties.title===sheetName);
+    const sheet  = sheets.sheets.find(s=>s.properties.title===DATA_SHEET);
     if (!sheet) { toast('找不到分頁',true); return; }
     const sheetId = sheet.properties.sheetId;
 
