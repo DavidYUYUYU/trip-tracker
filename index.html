@@ -366,18 +366,27 @@ async function ensureUserSheet() {
   try {
     const sheets = await getSheetsList();
     if (!sheets.includes(sheetName)) {
+      toast('首次使用，建立資料分頁中...');
       // 建立新分頁
       await sheetsBatchUpdate([{
         addSheet: { properties: { title: sheetName } }
       }]);
+      // 等一下再寫入標題，確保分頁已建立
+      await new Promise(r => setTimeout(r, 1000));
       // 寫入標題列
       await sheetsAppend(`${sheetName}!A1`, [[
         'ID','日期','說明',
         '起始里程','結束里程','行駛里程(km)','費率(元/km)',
         '里程費用','高鐵費用','ETC費用','停車費','其他費用','總費用','建立時間'
       ]]);
+      toast('✓ 資料分頁建立完成');
     }
-  } catch(e) { console.error('建立分頁失敗', e); }
+    return true;
+  } catch(e) {
+    console.error('建立分頁失敗', e.message);
+    toast('建立分頁失敗：'+e.message, true);
+    return false;
+  }
 }
 
 // ══ 讀取紀錄 ══
@@ -402,10 +411,17 @@ async function loadRecords() {
         park:  +r[10]|| 0,
         other: +r[11]|| 0,
         total: +r[12]|| 0,
-      })).reverse();
+      })).filter(r => r.id).reverse();
     }
     renderAll();
-  } catch(e) { toast('讀取失敗：'+e.message, true); }
+  } catch(e) {
+    // 400 通常是分頁剛建立還沒 ready，顯示空白就好
+    if (e.message.includes('400')) {
+      records = []; renderAll();
+    } else {
+      toast('讀取失敗：'+e.message, true);
+    }
+  }
   setSyncing(false);
 }
 
