@@ -185,6 +185,13 @@
 
   <div class="page" id="page-records">
     <div class="sync-badge"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">已同步</span></div>
+
+    <!-- 動態標題 -->
+    <div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-bottom:10px;letter-spacing:0.05em">
+      <span id="month-title-label" style="color:var(--accent);font-size:16px;font-weight:500"></span>
+      <span id="month-title-sub"></span>
+    </div>
+
     <div class="summary">
       <div class="summary-top">
         <div class="sum-cell"><div class="sum-val" id="s-count">0</div><div class="sum-lbl">筆紀錄</div></div>
@@ -512,14 +519,37 @@ function switchTab(tab) {
     t.classList.toggle('active',['add','records','settings'][i]===tab));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+tab).classList.add('active');
-  if (tab==='records') loadRecords();
+  if (tab==='records') {
+    // 預設選當月
+    const fm = document.getElementById('filter-month');
+    if (!fm.value) {
+      fm.value = new Date().toISOString().substring(0,7);
+    }
+    loadRecords();
+  }
 }
 
 function getFiltered() {
   const m=document.getElementById('filter-month')?.value||'';
   return m?records.filter(r=>r.date&&r.date.startsWith(m)):records;
 }
-function renderAll(){renderRecords();updateSummary();}
+
+function updateMonthTitle() {
+  const m   = document.getElementById('filter-month')?.value || '';
+  const lbl = document.getElementById('month-title-label');
+  const sub = document.getElementById('month-title-sub');
+  if (!lbl) return;
+  if (m) {
+    const [y, mo] = m.split('-');
+    lbl.textContent = `${y} 年 ${parseInt(mo)} 月`;
+    sub.textContent = ' 出差費用紀錄';
+  } else {
+    lbl.textContent = '全部';
+    sub.textContent = ' 出差費用紀錄';
+  }
+}
+
+function renderAll() { updateMonthTitle(); renderRecords(); updateSummary(); }
 
 function renderRecords() {
   const cur=settings.currency||'NT$', filtered=getFiltered();
