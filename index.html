@@ -316,15 +316,23 @@ function confirmLogout() {
 }
 
 // ══ Google Sheets API 呼叫 ══
+// 正確編碼 range，只編碼分頁名稱，保留 ! 和欄位標記
+function encodeRange(range) {
+  const idx = range.indexOf('!');
+  if (idx === -1) return encodeURIComponent(range);
+  const sheet = range.substring(0, idx);
+  const cells = range.substring(idx + 1);
+  return encodeURIComponent(sheet) + '!' + cells;
+}
 async function sheetsGet(range) {
-  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(range)}`;
+  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeRange(range)}`;
   const r   = await fetch(url, { headers:{ Authorization:'Bearer '+accessToken }});
   if (!r.ok) throw new Error('讀取失敗 '+r.status);
   return r.json();
 }
 
 async function sheetsAppend(range, values) {
-  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeRange(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const r   = await fetch(url, {
     method: 'POST',
     headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
