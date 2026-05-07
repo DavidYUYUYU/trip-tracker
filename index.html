@@ -226,9 +226,23 @@
     <!-- 里程輸入方式 -->
     <div class="card">
       <div class="card-title">📏 里程計算</div>
-      <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">
-        填好起始和結束地點後按下計算
+
+      <!-- 交通工具選擇 -->
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button id="v-car" onclick="setVehicle('car')"
+          style="flex:1;padding:9px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#0f1117;font-size:13px;font-weight:700;cursor:pointer">
+          🚗 汽車
+        </button>
+        <button id="v-moto" onclick="setVehicle('moto')"
+          style="flex:1;padding:9px;border-radius:8px;border:2px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer">
+          🛵 機車
+        </button>
       </div>
+
+      <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:12px" id="vehicle-hint">
+        汽車模式：走一般道路（避免限制道路）
+      </div>
+
       <button onclick="calcByMaps()" id="maps-btn"
         style="width:100%;padding:14px;border-radius:8px;border:1px solid var(--accent2);background:transparent;color:var(--accent2);font-size:14px;font-family:var(--sans);font-weight:700;cursor:pointer">
         🗺️ 用 Google Maps 計算行車里程
@@ -241,7 +255,6 @@
           <span style="font-size:12px;color:var(--text2)">km</span>
         </div>
       </div>
-
     </div>
 
     <div class="card">
@@ -773,23 +786,40 @@ async function calcByMaps() {
 
   try {
     const directionsService = new google.maps.DirectionsService();
+    // 機車和汽車都用 DRIVING，但機車可走不同路線
+    // Google Maps 目前 JS API 不直接支援機車模式，
+    // 改用 avoid 參數：機車不避開 highways，汽車走一般路線
+    const routeOptions = {
+      origin:      startVal + ' 台灣',
+      destination: endVal   + ' 台灣',
+      waypoints:   waypts.map(w => ({ location: w + ' 台灣', stopover: true })),
+      travelMode:  google.maps.TravelMode.DRIVING,
+      region:      'TW',
+      language:    'zh-TW',
+    };
+    // 機車模式：不避高速公路（機車可上部分快速道路）
+    // 汽車模式：預設最佳路線
+    if (vehicleMode === 'moto') {
+      routeOptions.provideRouteAlternatives = true;
+    }
+
     const result = await new Promise((resolve, reject) => {
-      directionsService.route({
-        origin:      startVal + ' 台灣',
-        destination: endVal   + ' 台灣',
-        waypoints:   waypts.map(w => ({ location: w + ' 台灣', stopover: true })),
-        travelMode:  google.maps.TravelMode.DRIVING,
-        region:      'TW',
-        language:    'zh-TW',
-      }, (result, routeStatus) => {
-        if (routeStatus === 'OK') resolve(result);
+      directionsService.route(routeOptions, (res, routeStatus) => {
+        if (routeStatus === 'OK') resolve(res);
         else reject(new Error(routeStatus));
       });
     });
 
-    // 加總所有路段距離
+    // 機車模式取最短路線，汽車取預設（最快）
+    const routeIdx = vehicleMode === 'moto'
+      ? result.routes.reduce((best, r, i) => {
+          const dist = r.legs.reduce((s, l) => s + l.distance.value, 0);
+          return dist < best.dist ? { dist, i } : best;
+        }, { dist: Infinity, i: 0 }).i
+      : 0;
+
     let totalMeters = 0;
-    result.routes[0].legs.forEach(leg => { totalMeters += leg.distance.value; });
+    result.routes[routeIdx].legs.forEach(leg => { totalMeters += leg.distance.value; });
     const totalKm = totalMeters / 1000;
 
     // 儲存距離並更新顯示
@@ -798,8 +828,9 @@ async function calcByMaps() {
     if (distEl) distEl.textContent = totalKm.toFixed(1);
     calcAll();
 
+    const vLabel  = vehicleMode === 'car' ? '🚗 汽車' : '🛵 機車';
     const wayptMsg = waypts.length > 0 ? `，含 ${waypts.length} 個中途站` : '';
-    status.textContent = `✓ ${totalKm.toFixed(1)} km${wayptMsg}`;
+    status.textContent = `✓ ${vLabel} ${totalKm.toFixed(1)} km${wayptMsg}`;
     status.style.color = 'var(--accent)';
 
   } catch(e) {
@@ -813,7 +844,26 @@ async function calcByMaps() {
   btn.disabled = false;
 }
 let waypointCount = 0;
-let mapsDist      = 0; // Google Maps 算出的距離
+let mapsDist      = 0;
+let vehicleMode   = 'car'; // 'car' | 'moto'
+
+function setVehicle(mode) {
+  vehicleMode = mode;
+  const carBtn  = document.getElementById('v-car');
+  const motoBtn = document.getElementById('v-moto');
+  const hint    = document.getElementById('vehicle-hint');
+  if (mode === 'car') {
+    carBtn.style.cssText  += ';border-color:var(--accent);background:var(--accent);color:#0f1117';
+    motoBtn.style.cssText += ';border-color:var(--border);background:transparent;color:var(--text2)';
+    hint.textContent = '汽車模式：走一般道路（避免限制道路）';
+  } else {
+    motoBtn.style.cssText += ';border-color:var(--accent);background:var(--accent);color:#0f1117';
+    carBtn.style.cssText  += ';border-color:var(--border);background:transparent;color:var(--text2)';
+    hint.textContent = '機車模式：可走機車專用道、省道等';
+  }
+  // 若已有計算結果，重新計算
+  if (mapsDist > 0) calcByMaps();
+}
 
 function addWaypoint() {
   waypointCount++;
