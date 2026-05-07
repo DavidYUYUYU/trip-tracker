@@ -570,13 +570,28 @@ let acEnd        = null;
 function initMaps() {
   mapsReady = true;
   const opts = {
-    componentRestrictions: { country: 'tw' }, // 限台灣
-    fields: ['name','formatted_address','geometry'],
+    componentRestrictions: { country: 'tw' },
+    fields: ['name', 'formatted_address', 'geometry'],
   };
+
   acStart = new google.maps.places.Autocomplete(
     document.getElementById('start-company'), opts);
   acEnd   = new google.maps.places.Autocomplete(
     document.getElementById('end-company'), opts);
+
+  // 選取後只保留名稱，不帶入完整地址
+  acStart.addListener('place_changed', () => {
+    const place = acStart.getPlace();
+    if (place && place.name) {
+      document.getElementById('start-company').value = place.name;
+    }
+  });
+  acEnd.addListener('place_changed', () => {
+    const place = acEnd.getPlace();
+    if (place && place.name) {
+      document.getElementById('end-company').value = place.name;
+    }
+  });
 }
 
 // 讓 Maps API 載入完成後自動呼叫
@@ -593,16 +608,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 300);
 });
 
-// 中途站也加入 autocomplete
 function addWaypointAutocomplete(input) {
   if (!mapsReady) return;
-  new google.maps.places.Autocomplete(input, {
+  const ac = new google.maps.places.Autocomplete(input, {
     componentRestrictions: { country: 'tw' },
-    fields: ['name','formatted_address'],
+    fields: ['name', 'formatted_address'],
+  });
+  ac.addListener('place_changed', () => {
+    const place = ac.getPlace();
+    if (place && place.name) input.value = place.name;
   });
 }
 
-// ── 用 Google Maps Distance Matrix 計算里程 ──
+// ── 用 Google Maps 計算里程（支援中文地址直接搜尋）──
 async function calcByMaps() {
   const startVal = document.getElementById('start-company').value.trim();
   const endVal   = document.getElementById('end-company').value.trim();
@@ -617,62 +635,44 @@ async function calcByMaps() {
   status.textContent = '🗺️ 計算中...';
   status.style.color = 'var(--accent3)';
 
-  // 收集所有途點（起點 → 中途站 → 終點）
   const waypts = getWaypoints();
 
   try {
-    const service = new google.maps.DistanceMatrixService();
+    const directionsService = new google.maps.DirectionsService();
+    const result = await new Promise((resolve, reject) => {
+      directionsService.route({
+        origin:      startVal + ' 台灣',
+        destination: endVal   + ' 台灣',
+        waypoints:   waypts.map(w => ({ location: w + ' 台灣', stopover: true })),
+        travelMode:  google.maps.TravelMode.DRIVING,
+        region:      'TW',
+        language:    'zh-TW',
+      }, (result, routeStatus) => {
+        if (routeStatus === 'OK') resolve(result);
+        else reject(new Error(routeStatus));
+      });
+    });
 
-    // 如果有中途站，用 Directions Service 計算總里程
-    let totalKm = 0;
-    if (waypts.length > 0) {
-      const directionsService = new google.maps.DirectionsService();
-      const result = await new Promise((resolve, reject) => {
-        directionsService.route({
-          origin:      startVal,
-          destination: endVal,
-          waypoints:   waypts.map(w => ({ location: w, stopover: true })),
-          travelMode:  google.maps.TravelMode.DRIVING,
-          region:      'TW',
-        }, (result, status) => {
-          if (status === 'OK') resolve(result);
-          else reject(new Error(status));
-        });
-      });
-      // 加總所有路段距離
-      result.routes[0].legs.forEach(leg => {
-        totalKm += leg.distance.value;
-      });
-      totalKm = totalKm / 1000;
-    } else {
-      // 沒有中途站，直接用 Distance Matrix
-      const result = await new Promise((resolve, reject) => {
-        service.getDistanceMatrix({
-          origins:      [startVal],
-          destinations: [endVal],
-          travelMode:   google.maps.TravelMode.DRIVING,
-          region:       'TW',
-        }, (result, status) => {
-          if (status === 'OK') resolve(result);
-          else reject(new Error(status));
-        });
-      });
-      const element = result.rows[0].elements[0];
-      if (element.status !== 'OK') throw new Error('無法計算此路線');
-      totalKm = element.distance.value / 1000;
-    }
+    // 加總所有路段距離
+    let totalMeters = 0;
+    result.routes[0].legs.forEach(leg => { totalMeters += leg.distance.value; });
+    const totalKm = totalMeters / 1000;
 
-    // 填入結束里程（起始里程 + 計算距離）
+    // 填入結束里程
     const startOdo = parseFloat(document.getElementById('odo-start').value) || 0;
-    const endOdo   = +(startOdo + totalKm).toFixed(1);
-    document.getElementById('odo-end').value = endOdo;
+    document.getElementById('odo-end').value = +(startOdo + totalKm).toFixed(1);
     calcAll();
 
-    status.textContent = `✓ ${totalKm.toFixed(1)} km（含 ${waypts.length} 個中途站）`;
+    const wayptMsg = waypts.length > 0 ? `，含 ${waypts.length} 個中途站` : '';
+    status.textContent = `✓ ${totalKm.toFixed(1)} km${wayptMsg}`;
     status.style.color = 'var(--accent)';
 
   } catch(e) {
-    status.textContent = '⚠ 計算失敗：' + e.message;
+    let msg = e.message;
+    if (msg === 'NOT_FOUND')       msg = '找不到地點，請輸入更完整的地址（例如：台中火車站）';
+    if (msg === 'ZERO_RESULTS')    msg = '找不到路線，請確認起訖地點';
+    if (msg === 'REQUEST_DENIED')  msg = 'API 權限不足，請確認 Directions API 已啟用';
+    status.textContent = '⚠ ' + msg;
     status.style.color = 'var(--danger)';
   }
   btn.disabled = false;
