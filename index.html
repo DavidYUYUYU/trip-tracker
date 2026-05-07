@@ -182,15 +182,19 @@
           <div style="width:2px;flex:1;min-height:20px;background:var(--border)"></div>
         </div>
         <div style="flex:1">
-          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:8px">
             <div>
-              <label>起始地點</label>
+              <label>起始名稱（顯示用）</label>
               <input type="text" id="start-company" placeholder="例：台中總公司" autocomplete="off" style="font-size:14px;padding:10px 12px">
             </div>
             <div style="width:110px">
               <label>出發時間</label>
               <input type="time" id="start-time" style="font-size:14px;padding:10px 8px">
             </div>
+          </div>
+          <div>
+            <label style="color:var(--accent2)">📍 起始搜尋地點（Google Maps 用）</label>
+            <input type="text" id="start-search" placeholder="輸入地址或地點名稱搜尋" autocomplete="off" style="font-size:14px;padding:10px 12px;border-color:var(--accent2)">
           </div>
         </div>
       </div>
@@ -219,15 +223,19 @@
           <div style="width:10px;height:10px;border-radius:50%;background:var(--danger);border:2px solid var(--danger)"></div>
         </div>
         <div style="flex:1">
-          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:8px">
             <div>
-              <label>抵達地點</label>
+              <label>抵達名稱（顯示用）</label>
               <input type="text" id="end-company" placeholder="例：台北客戶" autocomplete="off" style="font-size:14px;padding:10px 12px">
             </div>
             <div style="width:110px">
               <label>抵達時間</label>
               <input type="time" id="end-time" style="font-size:14px;padding:10px 8px">
             </div>
+          </div>
+          <div>
+            <label style="color:var(--accent2)">📍 抵達搜尋地點（Google Maps 用）</label>
+            <input type="text" id="end-search" placeholder="輸入地址或地點名稱搜尋" autocomplete="off" style="font-size:14px;padding:10px 12px;border-color:var(--accent2)">
           </div>
         </div>
       </div>
@@ -360,7 +368,8 @@
 const CLIENT_ID  = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
 const SHEET_ID    = '1prHsbgvRLq_XcDaRHxKHzRYMi1eQ0ktwQrtJtliRIGY';
 const SHEETS_API  = 'https://sheets.googleapis.com/v4/spreadsheets';
-const DATA_SHEET  = '出差紀錄'; // 所有人共用一個分頁，用 email 區分
+const DATA_SHEET     = '出差紀錄'; // 所有人共用一個分頁，用 email 區分
+const SETTINGS_SHEET = '個人設定';  // 每人的費率/貨幣設定
 
 // ══ 狀態 ══
 let records     = [];
@@ -383,25 +392,74 @@ async function enterApp(email) {
   document.getElementById('user-badge').title             = `登入中：${email}\n點擊可切換帳號`;
   document.getElementById('trip-date').value = new Date().toISOString().split('T')[0];
 
-  // 設定
-  const s = JSON.parse(localStorage.getItem('trip_settings')||'{}');
-  settings.rate     = s.rate     || '';
-  settings.currency = s.currency || 'NT$';
-  document.getElementById('rate-input').value   = settings.rate;
-  document.getElementById('default-rate').value = settings.rate;
-  document.getElementById('currency-sym').value  = settings.currency;
-
-  // 確保使用者分頁存在
+  // 確保分頁存在
   await ensureUserSheet();
+
+  // 從 Sheets 載入個人設定（含費率）
+  await loadSettings();
   await loadRecords();
 }
 
-function saveSettingsLocal() {
-  settings.rate     = document.getElementById('default-rate').value;
-  settings.currency = document.getElementById('currency-sym').value || 'NT$';
-  document.getElementById('rate-input').value = settings.rate;
-  localStorage.setItem('trip_settings', JSON.stringify(settings));
-  toast('✓ 設定已儲存');
+async function saveSettingsLocal() {
+  const rate     = document.getElementById('default-rate').value;
+  const currency = document.getElementById('currency-sym').value || 'NT$';
+  settings.rate     = rate;
+  settings.currency = currency;
+  document.getElementById('rate-input').value = rate;
+
+  // 存到 Google Sheets 設定分頁
+  try {
+    // 找到該 email 的列，有則更新，沒有則新增
+    const data = await sheetsGet(`${SETTINGS_SHEET}!A:C`);
+    const rows = data.values || [];
+    let rowIdx  = -1;
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === userEmail) { rowIdx = i + 1; break; }
+    }
+
+    if (rowIdx > 0) {
+      // 更新已有的列
+      const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeRange(SETTINGS_SHEET + '!A' + rowIdx + ':C' + rowIdx)}?valueInputOption=USER_ENTERED`;
+      await fetch(url, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[userEmail, rate, currency]] })
+      });
+    } else {
+      // 新增
+      await sheetsAppend(`${SETTINGS_SHEET}!A:C`, [[userEmail, rate, currency]]);
+    }
+    toast('✓ 設定已儲存');
+  } catch(e) {
+    toast('設定儲存失敗：' + e.message, true);
+  }
+}
+
+async function loadSettings() {
+  try {
+    const data = await sheetsGet(`${SETTINGS_SHEET}!A:C`);
+    const rows = (data.values || []).slice(1);
+    const row  = rows.find(r => r[0] === userEmail);
+    if (row) {
+      settings.rate     = row[1] || '';
+      settings.currency = row[2] || 'NT$';
+    } else {
+      settings.rate     = '';
+      settings.currency = 'NT$';
+    }
+  } catch(e) {
+    // 分頁不存在時建立
+    try {
+      await sheetsBatchUpdate([{ addSheet: { properties: { title: SETTINGS_SHEET } } }]);
+      await new Promise(r => setTimeout(r, 500));
+      await sheetsAppend(`${SETTINGS_SHEET}!A1`, [['Email','費率(元/km)','貨幣符號']]);
+    } catch(e2) {}
+    settings.rate     = '';
+    settings.currency = 'NT$';
+  }
+  document.getElementById('rate-input').value   = settings.rate;
+  document.getElementById('default-rate').value = settings.rate;
+  document.getElementById('currency-sym').value  = settings.currency;
 }
 
 function confirmLogout() {
@@ -562,7 +620,7 @@ async function addRecord() {
       etc, hsr, park, oil, total, now
     ]]);
     records.unshift({id,date,startCompany,startTime,waypoints,endCompany,endTime,dist,area,etc,hsr,park,oil,total});
-    ['trip-area','start-company','start-time','end-company','end-time',
+    ['trip-area','start-company','start-time','start-search','end-company','end-time','end-search',
      'cost-hsr','cost-etc','cost-park','cost-oil']
       .forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
     clearWaypoints();
@@ -617,8 +675,9 @@ let acEnd        = null;
 // Maps API 載入完成後初始化
 function initMaps() {
   mapsReady = true;
-  setupPlaceInput('start-company');
-  setupPlaceInput('end-company');
+  // Autocomplete 綁到搜尋欄位（不是顯示名稱欄位）
+  setupPlaceInput('start-search');
+  setupPlaceInput('end-search');
 }
 window.initMaps = initMaps;
 
@@ -780,13 +839,13 @@ function addWaypointAutocomplete(input) {
 
 // ── 用 Google Maps 計算里程（支援中文地址直接搜尋）──
 async function calcByMaps() {
-  const startVal = document.getElementById('start-company').value.trim();
-  const endVal   = document.getElementById('end-company').value.trim();
+  const startVal = document.getElementById('start-search').value.trim() || document.getElementById('start-company').value.trim();
+  const endVal   = document.getElementById('end-search').value.trim() || document.getElementById('end-company').value.trim();
   const status   = document.getElementById('maps-status');
   const btn      = document.getElementById('maps-btn');
 
-  if (!startVal) { status.textContent = '⚠ 請先填寫起始地點'; return; }
-  if (!endVal)   { status.textContent = '⚠ 請先填寫結束地點'; return; }
+  if (!startVal) { status.textContent = '⚠ 請填寫起始搜尋地點'; return; }
+  if (!endVal)   { status.textContent = '⚠ 請填寫抵達搜尋地點'; return; }
   if (!mapsReady){ status.textContent = '⚠ Google Maps 尚未載入，請稍後再試'; return; }
 
   btn.disabled = true;
