@@ -786,9 +786,6 @@ async function calcByMaps() {
 
   try {
     const directionsService = new google.maps.DirectionsService();
-    // 機車和汽車都用 DRIVING，但機車可走不同路線
-    // Google Maps 目前 JS API 不直接支援機車模式，
-    // 改用 avoid 參數：機車不避開 highways，汽車走一般路線
     const routeOptions = {
       origin:      startVal + ' 台灣',
       destination: endVal   + ' 台灣',
@@ -797,11 +794,6 @@ async function calcByMaps() {
       region:      'TW',
       language:    'zh-TW',
     };
-    // 機車模式：不避高速公路（機車可上部分快速道路）
-    // 汽車模式：預設最佳路線
-    if (vehicleMode === 'moto') {
-      routeOptions.provideRouteAlternatives = true;
-    }
 
     const result = await new Promise((resolve, reject) => {
       directionsService.route(routeOptions, (res, routeStatus) => {
@@ -810,16 +802,8 @@ async function calcByMaps() {
       });
     });
 
-    // 機車模式取最短路線，汽車取預設（最快）
-    const routeIdx = vehicleMode === 'moto'
-      ? result.routes.reduce((best, r, i) => {
-          const dist = r.legs.reduce((s, l) => s + l.distance.value, 0);
-          return dist < best.dist ? { dist, i } : best;
-        }, { dist: Infinity, i: 0 }).i
-      : 0;
-
     let totalMeters = 0;
-    result.routes[routeIdx].legs.forEach(leg => { totalMeters += leg.distance.value; });
+    result.routes[0].legs.forEach(leg => { totalMeters += leg.distance.value; });
     const totalKm = totalMeters / 1000;
 
     // 儲存距離並更新顯示
