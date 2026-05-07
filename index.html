@@ -213,12 +213,14 @@
           <div style="width:10px;height:10px;border-radius:50%;background:var(--danger);border:2px solid var(--danger)"></div>
         </div>
         <div style="flex:1">
-          <div class="row" style="gap:8px">
-            <div><label>結束地點</label><input type="text" id="end-company" placeholder="例：台北客戶" autocomplete="off"></div>
-            <div><label>抵達時間</label><input type="time" id="end-time" style="font-size:15px;padding:10px 12px"></div>
+          <div class="field" style="margin-bottom:0">
+            <label>抵達時間</label>
+            <input type="time" id="end-time" style="font-size:15px;padding:10px 12px">
           </div>
         </div>
       </div>
+      <!-- 隱藏 end-company 保持資料結構相容 -->
+      <input type="text" id="end-company" style="display:none">
     </div>
 
     <!-- 里程輸入方式 -->
@@ -239,9 +241,7 @@
           <span style="font-size:12px;color:var(--text2)">km</span>
         </div>
       </div>
-      <!-- 隱藏欄位供儲存用 -->
-      <input type="number" id="odo-start" style="display:none">
-      <input type="number" id="odo-end"   style="display:none">
+
     </div>
 
     <div class="card">
@@ -437,8 +437,8 @@ async function getSheetsList() {
 }
 
 // ── 確保使用者分頁存在，不存在則建立 ──
-const HEADERS = ['ID','Email','日期','起始公司','起始時間','起始里程',
-  '中途站','結束公司','結束時間','結束里程','里程數KM','客戶區域',
+const HEADERS = ['ID','Email','日期','起始公司','起始時間',
+  '中途站','結束時間','里程數KM','客戶區域',
   '回數票/ETC','高鐵費用','停車費','油資單','總費用','建立時間'];
 
 async function ensureUserSheet() {
@@ -474,13 +474,13 @@ async function ensureUserSheet() {
 async function loadRecords() {
   setSyncing(true);
   try {
-    const data = await sheetsGet(`${DATA_SHEET}!A:R`);
+    const data = await sheetsGet(`${DATA_SHEET}!A:P`);
     const rows = data.values || [];
     if (rows.length <= 1) { records = []; }
     else {
-      // A=ID, B=Email, C=日期, D=起始公司, E=起始時間, F=起始里程
-      // G=中途站, H=結束公司, I=結束時間, J=結束里程, K=里程數, L=客戶區域
-      // M=回數票, N=高鐵, O=停車, P=油資單, Q=總費用, R=建立時間
+      // A=ID, B=Email, C=日期, D=起始公司, E=起始時間
+      // F=中途站, G=結束時間, H=里程數, I=客戶區域
+      // J=回數票, K=高鐵, L=停車, M=油資單, N=總費用, O=建立時間
       records = rows.slice(1)
         .filter(r => r[1] === userEmail)
         .map(r => ({
@@ -488,18 +488,15 @@ async function loadRecords() {
           date:         r[2]  || '',
           startCompany: r[3]  || '',
           startTime:    r[4]  || '',
-          start:        +r[5] || 0,
-          waypoints:    r[6]  || '',
-          endCompany:   r[7]  || '',
-          endTime:      r[8]  || '',
-          end:          +r[9] || 0,
-          dist:         +r[10]|| 0,
-          area:         r[11] || '',
-          etc:          +r[12]|| 0,
-          hsr:          +r[13]|| 0,
-          park:         +r[14]|| 0,
-          oil:          +r[15]|| 0,
-          total:        +r[16]|| 0,
+          waypoints:    r[5]  || '',
+          endTime:      r[6]  || '',
+          dist:         +r[7] || 0,
+          area:         r[8]  || '',
+          etc:          +r[9] || 0,
+          hsr:          +r[10]|| 0,
+          park:         +r[11]|| 0,
+          oil:          +r[12]|| 0,
+          total:        +r[13]|| 0,
         })).filter(r => r.id).reverse();
     }
     renderAll();
@@ -518,12 +515,8 @@ async function addRecord() {
   const startTime    = document.getElementById('start-time').value;
   const endCompany   = document.getElementById('end-company').value.trim();
   const endTime      = document.getElementById('end-time').value;
-  const start        = parseFloat(document.getElementById('odo-start').value);
-  const end          = parseFloat(document.getElementById('odo-end').value);
-
   if (!date)         { toast('請選擇日期',true); return; }
   if (!startCompany) { toast('請填寫起始地點',true); return; }
-  if (!endCompany)   { toast('請填寫結束地點',true); return; }
   if (mapsDist <= 0) { toast('請先用 Google Maps 計算里程',true); return; }
 
   const rate  = g('rate-input');
@@ -539,15 +532,14 @@ async function addRecord() {
 
   try {
     const waypoints = getWaypoints().join(' → ');
-    await sheetsAppend(`${DATA_SHEET}!A:R`, [[
-      id, userEmail, date, startCompany, startTime, start,
-      waypoints,
-      endCompany, endTime, end, dist, area,
+    await sheetsAppend(`${DATA_SHEET}!A:P`, [[
+      id, userEmail, date, startCompany, startTime,
+      waypoints, endTime, dist, area,
       etc, hsr, park, oil, total, now
     ]]);
-    records.unshift({id,date,startCompany,startTime,start,waypoints,endCompany,endTime,end,dist,area,etc,hsr,park,oil,total});
-    ['trip-area','start-company','start-time','end-company','end-time',
-     'odo-start','odo-end','cost-hsr','cost-etc','cost-park','cost-oil']
+    records.unshift({id,date,startCompany,startTime,waypoints,endTime,dist,area,etc,hsr,park,oil,total});
+    ['trip-area','start-company','start-time','end-time',
+     'cost-hsr','cost-etc','cost-park','cost-oil']
       .forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
     clearWaypoints();
     mapsDist = 0;
@@ -945,7 +937,6 @@ function renderRecords() {
         <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">刪除</button>
       </div>
       <div class="chips">
-        <span class="chip">${r.start} → ${r.end} km</span>
         <span class="chip km">🚗 ${r.dist} km</span>
         <span class="chip grand">${cur} ${r.total.toLocaleString()}</span>
       </div>
@@ -1027,21 +1018,20 @@ function doExport(type) {
   setExportLoading(true);
 
   // 匯出欄位（不含費率）
-  const headers = ['日期','起始公司','起始時間','起始里程','中途站','結束公司','結束時間','結束里程','里程數KM','客戶區域','回數票','油資單','高鐵費用','停車費','總費用'];
+  const headers = ['日期','起始公司','起始時間','中途站','結束時間','里程數KM','客戶區域','回數票','油資單','高鐵費用','停車費','總費用'];
   const sum = k => filtered.reduce((a,r)=>a+(+r[k]||0),0);
   const dataRows = filtered.map(r=>[
-    r.date, r.startCompany, r.startTime, r.start,
-    r.waypoints||'',
-    r.endCompany, r.endTime, r.end, r.dist, r.area,
+    r.date, r.startCompany, r.startTime,
+    r.waypoints||'', r.endTime, r.dist, r.area,
     r.etc, r.oil, r.hsr, r.park, r.total
   ]);
-  const totalRow = ['合計','','','','','','','',sum('dist').toFixed(1),'',
+  const totalRow = ['合計','','','','',sum('dist').toFixed(1),'',
     sum('etc'),sum('oil'),sum('hsr'),sum('park'),sum('total')];
 
   if (type==='excel') {
     const wb=XLSX.utils.book_new();
     const ws=XLSX.utils.aoa_to_sheet([headers,...dataRows,totalRow]);
-    ws['!cols']=[10,14,10,10,20,14,10,10,10,12,10,10,10,10,12].map(w=>({wch:w}));
+    ws['!cols']=[10,16,10,20,10,10,12,10,10,10,10,12].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,ws,'出差費用紀錄');
     XLSX.writeFile(wb,`出差費用紀錄${m?'_'+m:''}.xlsx`);
     toast('✓ Excel 已下載');
@@ -1057,9 +1047,8 @@ function doExport(type) {
 
   } else {
     const trRows=filtered.map(r=>`<tr>
-      <td>${r.date}</td><td>${r.startCompany}</td><td>${r.startTime}</td><td class="r">${r.start}</td>
-      <td>${r.waypoints||''}</td>
-      <td>${r.endCompany}</td><td>${r.endTime}</td><td class="r">${r.end}</td>
+      <td>${r.date}</td><td>${r.startCompany}</td><td>${r.startTime}</td>
+      <td>${r.waypoints||''}</td><td>${r.endTime}</td>
       <td class="r">${r.dist}</td><td>${r.area||''}</td>
       <td class="r">${r.etc>0?r.etc:''}</td><td class="r">${r.oil>0?r.oil:''}</td>
       <td class="r">${r.hsr>0?r.hsr:''}</td><td class="r">${r.park>0?r.park:''}</td>
@@ -1091,15 +1080,14 @@ tr:nth-child(even)td{background:#f9f9f9}
 <div class="stat"><div class="sv">${cur} ${sum('total').toLocaleString()}</div><div class="sl">總費用</div></div>
 </div>
 <table><thead><tr>
-<th>日期</th><th>起始公司</th><th>起始時間</th><th class="r">起始里程</th>
-<th>中途站</th>
-<th>結束公司</th><th>結束時間</th><th class="r">結束里程</th>
+<th>日期</th><th>起始公司</th><th>起始時間</th>
+<th>中途站</th><th>結束時間</th>
 <th class="r">里程KM</th><th>客戶區域</th>
 <th class="r">回數票</th><th class="r">油資單</th><th class="r">高鐵費</th><th class="r">停車費</th><th class="r">合計</th>
 </tr></thead><tbody>
 ${trRows}
 <tr class="foot">
-<td colspan="7">合計</td><td class="r"></td><td class="r">${sum('dist').toFixed(1)}</td><td></td>
+<td colspan="5">合計</td><td class="r">${sum('dist').toFixed(1)}</td><td></td>
 <td class="r">${sum('etc').toLocaleString()}</td>
 <td class="r">${sum('oil').toLocaleString()}</td>
 <td class="r">${sum('hsr').toLocaleString()}</td>
