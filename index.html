@@ -569,52 +569,164 @@ let acEnd        = null;
 // Maps API 載入完成後初始化
 function initMaps() {
   mapsReady = true;
-
-  setupPlaceAutocomplete('start-company');
-  setupPlaceAutocomplete('end-company');
+  setupPlaceInput('start-company');
+  setupPlaceInput('end-company');
 }
-
-function setupPlaceAutocomplete(id) {
-  const input = document.getElementById(id);
-  if (!input) return;
-  const ac = new google.maps.places.Autocomplete(input, {
-    componentRestrictions: { country: 'tw' },
-    fields: ['name', 'geometry'],
-  });
-  ac.addListener('place_changed', () => {
-    const place = ac.getPlace();
-    if (place && place.name) {
-      // setTimeout 確保在 Google 填入地址之後再覆蓋成名稱
-      setTimeout(() => { input.value = place.name; }, 10);
-    }
-  });
-  return ac;
-}
-
-// 讓 Maps API 載入完成後自動呼叫
 window.initMaps = initMaps;
 
-// 更新 Maps script 的 callback
 document.addEventListener('DOMContentLoaded', () => {
   const checkMaps = setInterval(() => {
     if (window.google && window.google.maps && window.google.maps.places) {
-      clearInterval(checkMaps);
-      initMaps();
+      clearInterval(checkMaps); initMaps();
     }
   }, 300);
 });
 
-function addWaypointAutocomplete(input) {
-  if (!mapsReady) return;
-  const ac = new google.maps.places.Autocomplete(input, {
+// 用隱藏 input 接受 Autocomplete，顯示 input 只顯示名稱
+function setupPlaceInput(visibleId) {
+  const visible = document.getElementById(visibleId);
+  if (!visible) return;
+
+  // 建立隱藏的搜尋 input
+  const hidden = document.createElement('input');
+  hidden.type = 'text';
+  hidden.style.cssText = 'position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;';
+  hidden.setAttribute('autocomplete', 'off');
+  document.body.appendChild(hidden);
+
+  // Autocomplete 綁在隱藏 input
+  const ac = new google.maps.places.Autocomplete(hidden, {
     componentRestrictions: { country: 'tw' },
     fields: ['name', 'geometry'],
   });
-  ac.addListener('place_changed', () => {
-    const place = ac.getPlace();
-    if (place && place.name) {
-      setTimeout(() => { input.value = place.name; }, 10);
-    }
+
+  // 使用者在可見 input 打字時，同步到隱藏 input 並觸發搜尋
+  visible.addEventListener('input', () => {
+    hidden.value = visible.value;
+    hidden.dispatchEvent(new Event('input'));
+  });
+
+  // 用 AutocompleteService 直接拿建議，自己畫下拉選單
+  const svc       = new google.maps.places.AutocompleteService();
+  const container = document.createElement('div');
+  container.style.cssText = `
+    position:absolute;z-index:9999;background:#1a1d27;border:1px solid #2e3352;
+    border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    width:${visible.offsetWidth}px;max-height:220px;overflow-y:auto;display:none;
+  `;
+  document.body.appendChild(container);
+
+  function positionContainer() {
+    const rect = visible.getBoundingClientRect();
+    container.style.left   = (rect.left + window.scrollX) + 'px';
+    container.style.top    = (rect.bottom + window.scrollY + 4) + 'px';
+    container.style.width  = rect.width + 'px';
+  }
+
+  let selectedName = ''; // 記住使用者選的名稱
+
+  visible.addEventListener('input', () => {
+    selectedName = '';
+    const val = visible.value.trim();
+    if (!val || val.length < 1) { container.style.display='none'; return; }
+    positionContainer();
+    svc.getPlacePredictions(
+      { input: val, componentRestrictions: { country: 'tw' }, language: 'zh-TW' },
+      (predictions, status) => {
+        container.innerHTML = '';
+        if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
+          container.style.display = 'none'; return;
+        }
+        container.style.display = 'block';
+        predictions.slice(0,5).forEach(pred => {
+          const item = document.createElement('div');
+          item.style.cssText = 'padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
+          // 主要名稱粗體
+          const mainText = pred.structured_formatting?.main_text || pred.description;
+          const subText  = pred.structured_formatting?.secondary_text || '';
+          item.innerHTML = `<div style="font-weight:600">${mainText}</div>${subText?`<div style="font-size:11px;color:#8b91a8;margin-top:2px">${subText}</div>`:''}`;
+          item.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectedName = mainText; // 只存名稱
+            visible.value = mainText;
+            container.style.display = 'none';
+          });
+          item.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            selectedName = mainText;
+            visible.value = mainText;
+            container.style.display = 'none';
+          });
+          item.addEventListener('mouseover', () => item.style.background='#22263a');
+          item.addEventListener('mouseout',  () => item.style.background='');
+          container.appendChild(item);
+        });
+      }
+    );
+  });
+
+  visible.addEventListener('blur', () => {
+    setTimeout(() => { container.style.display='none'; }, 200);
+  });
+  visible.addEventListener('focus', () => {
+    if (visible.value.trim()) visible.dispatchEvent(new Event('input'));
+  });
+}
+
+function addWaypointAutocomplete(input) {
+  if (!mapsReady) return;
+  const svc       = new google.maps.places.AutocompleteService();
+  const container = document.createElement('div');
+  container.style.cssText = `
+    position:absolute;z-index:9999;background:#1a1d27;border:1px solid #2e3352;
+    border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    max-height:200px;overflow-y:auto;display:none;min-width:200px;
+  `;
+  document.body.appendChild(container);
+
+  function positionContainer() {
+    const rect = input.getBoundingClientRect();
+    container.style.left  = (rect.left + window.scrollX) + 'px';
+    container.style.top   = (rect.bottom + window.scrollY + 4) + 'px';
+    container.style.width = rect.width + 'px';
+  }
+
+  input.addEventListener('input', () => {
+    const val = input.value.trim();
+    if (!val) { container.style.display='none'; return; }
+    positionContainer();
+    svc.getPlacePredictions(
+      { input: val, componentRestrictions: { country: 'tw' }, language: 'zh-TW' },
+      (predictions, status) => {
+        container.innerHTML = '';
+        if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
+          container.style.display='none'; return;
+        }
+        container.style.display = 'block';
+        predictions.slice(0,5).forEach(pred => {
+          const mainText = pred.structured_formatting?.main_text || pred.description;
+          const item = document.createElement('div');
+          item.style.cssText = 'padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
+          item.textContent = mainText;
+          item.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            input.value = mainText;
+            container.style.display = 'none';
+          });
+          item.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            input.value = mainText;
+            container.style.display = 'none';
+          });
+          item.addEventListener('mouseover', () => item.style.background='#22263a');
+          item.addEventListener('mouseout',  () => item.style.background='');
+          container.appendChild(item);
+        });
+      }
+    );
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => { container.style.display='none'; }, 200);
   });
 }
 
