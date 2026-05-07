@@ -117,7 +117,8 @@
     background:transparent; border:none; color:var(--danger);
     font-size:18px; cursor:pointer; padding:0 4px; flex-shrink:0;
     line-height:1;
-  }align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-bottom:12px}
+  }
+  .sync-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-bottom:12px}
   .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
   .sync-dot.syncing{background:var(--accent3);animation:pulse 1s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
@@ -316,31 +317,6 @@ let records     = [];
 let settings    = { rate:'', currency:'NT$' };
 let userEmail   = '';
 let accessToken = '';
-
-// ══ 登入（強制選帳號）══
-function startLogin() {
-  const btn = document.getElementById('login-btn');
-  btn.disabled = true;
-  document.getElementById('login-status').textContent = '登入中...';
-
-  google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: 'email profile https://www.googleapis.com/auth/spreadsheets',
-    prompt: 'select_account',
-    callback: async (resp) => {
-      btn.disabled = false;
-      if (resp.error) { onLoginFail(resp.error); return; }
-      try {
-        accessToken = resp.access_token;
-        const info  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',
-          { headers:{ Authorization:'Bearer '+accessToken }}).then(r=>r.json());
-        if (!info.email) { onLoginFail('無法取得帳號'); return; }
-        userEmail  = info.email;
-        enterApp(info.email);
-      } catch(e) { btn.disabled=false; onLoginFail('網路錯誤：'+e.message); }
-    }
-  }).requestAccessToken();
-}
 
 function onLoginFail(err) {
   document.getElementById('login-btn').disabled = false;
