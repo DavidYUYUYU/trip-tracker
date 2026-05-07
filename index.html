@@ -182,13 +182,15 @@
           <div style="width:2px;flex:1;min-height:20px;background:var(--border)"></div>
         </div>
         <div style="flex:1">
-          <div class="field" style="margin-bottom:8px">
-            <label>起始地點</label>
-            <input type="text" id="start-company" placeholder="例：台中總公司" autocomplete="off">
-          </div>
-          <div style="width:50%">
-            <label>出發時間</label>
-            <input type="time" id="start-time">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+            <div>
+              <label>起始地點</label>
+              <input type="text" id="start-company" placeholder="例：台中總公司" autocomplete="off" style="font-size:14px;padding:10px 12px">
+            </div>
+            <div style="width:110px">
+              <label>出發時間</label>
+              <input type="time" id="start-time" style="font-size:14px;padding:10px 8px">
+            </div>
           </div>
         </div>
       </div>
@@ -217,13 +219,15 @@
           <div style="width:10px;height:10px;border-radius:50%;background:var(--danger);border:2px solid var(--danger)"></div>
         </div>
         <div style="flex:1">
-          <div class="field" style="margin-bottom:8px">
-            <label>抵達地點</label>
-            <input type="text" id="end-company" placeholder="例：台北客戶" autocomplete="off">
-          </div>
-          <div style="width:50%">
-            <label>抵達時間</label>
-            <input type="time" id="end-time">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+            <div>
+              <label>抵達地點</label>
+              <input type="text" id="end-company" placeholder="例：台北客戶" autocomplete="off" style="font-size:14px;padding:10px 12px">
+            </div>
+            <div style="width:110px">
+              <label>抵達時間</label>
+              <input type="time" id="end-time" style="font-size:14px;padding:10px 8px">
+            </div>
           </div>
         </div>
       </div>
@@ -1060,7 +1064,7 @@ function doExport(type) {
   setExportLoading(true);
 
   // 匯出欄位（不含費率）
-  const headers = ['日期','起始公司','起始時間','中途站','抵達地點','結束時間','里程數KM','客戶區域','回數票','油資單','高鐵費用','停車費','總費用'];
+  const headers = ['日期','起始公司','起始時間','中途站','抵達地點','結束時間','里程數KM','客戶區域','回數票/ETC','油資單','高鐵費用','停車費','總費用'];
   const sum = k => filtered.reduce((a,r)=>a+(+r[k]||0),0);
   const dataRows = filtered.map(r=>[
     r.date, r.startCompany, r.startTime,
@@ -1125,7 +1129,7 @@ tr:nth-child(even)td{background:#f9f9f9}
 <th>日期</th><th>起始公司</th><th>起始時間</th>
 <th>中途站</th><th>抵達地點</th><th>結束時間</th>
 <th class="r">里程KM</th><th>客戶區域</th>
-<th class="r">回數票</th><th class="r">油資單</th><th class="r">高鐵費</th><th class="r">停車費</th><th class="r">合計</th>
+<th class="r">回數票/ETC</th><th class="r">油資單</th><th class="r">高鐵費</th><th class="r">停車費</th><th class="r">合計</th>
 </tr></thead><tbody>
 ${trRows}
 <tr class="foot">
