@@ -569,29 +569,26 @@ let acEnd        = null;
 // Maps API 載入完成後初始化
 function initMaps() {
   mapsReady = true;
-  const opts = {
+
+  setupPlaceAutocomplete('start-company');
+  setupPlaceAutocomplete('end-company');
+}
+
+function setupPlaceAutocomplete(id) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  const ac = new google.maps.places.Autocomplete(input, {
     componentRestrictions: { country: 'tw' },
-    fields: ['name', 'formatted_address', 'geometry'],
-  };
-
-  acStart = new google.maps.places.Autocomplete(
-    document.getElementById('start-company'), opts);
-  acEnd   = new google.maps.places.Autocomplete(
-    document.getElementById('end-company'), opts);
-
-  // 選取後只保留名稱，不帶入完整地址
-  acStart.addListener('place_changed', () => {
-    const place = acStart.getPlace();
+    fields: ['name', 'geometry'],
+  });
+  ac.addListener('place_changed', () => {
+    const place = ac.getPlace();
     if (place && place.name) {
-      document.getElementById('start-company').value = place.name;
+      // setTimeout 確保在 Google 填入地址之後再覆蓋成名稱
+      setTimeout(() => { input.value = place.name; }, 10);
     }
   });
-  acEnd.addListener('place_changed', () => {
-    const place = acEnd.getPlace();
-    if (place && place.name) {
-      document.getElementById('end-company').value = place.name;
-    }
-  });
+  return ac;
 }
 
 // 讓 Maps API 載入完成後自動呼叫
@@ -599,7 +596,6 @@ window.initMaps = initMaps;
 
 // 更新 Maps script 的 callback
 document.addEventListener('DOMContentLoaded', () => {
-  // 等 Maps API 載入
   const checkMaps = setInterval(() => {
     if (window.google && window.google.maps && window.google.maps.places) {
       clearInterval(checkMaps);
@@ -612,11 +608,13 @@ function addWaypointAutocomplete(input) {
   if (!mapsReady) return;
   const ac = new google.maps.places.Autocomplete(input, {
     componentRestrictions: { country: 'tw' },
-    fields: ['name', 'formatted_address'],
+    fields: ['name', 'geometry'],
   });
   ac.addListener('place_changed', () => {
     const place = ac.getPlace();
-    if (place && place.name) input.value = place.name;
+    if (place && place.name) {
+      setTimeout(() => { input.value = place.name; }, 10);
+    }
   });
 }
 
