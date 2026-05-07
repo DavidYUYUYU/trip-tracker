@@ -223,56 +223,25 @@
 
     <!-- 里程輸入方式 -->
     <div class="card">
-      <div class="card-title">📏 里程計算方式</div>
-
-      <!-- 切換按鈕 -->
-      <div style="display:flex;gap:8px;margin-bottom:16px">
-        <button id="mode-manual-btn" onclick="setMileageMode('manual')"
-          style="flex:1;padding:10px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#0f1117;font-size:13px;font-weight:700;cursor:pointer">
-          ✍️ 手動輸入
-        </button>
-        <button id="mode-maps-btn" onclick="setMileageMode('maps')"
-          style="flex:1;padding:10px;border-radius:8px;border:2px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer">
-          🗺️ Google Maps
-        </button>
+      <div class="card-title">📏 里程計算</div>
+      <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">
+        填好起始和結束地點後按下計算
       </div>
-
-      <!-- 手動輸入區 -->
-      <div id="mode-manual">
-        <div class="row field">
-          <div>
-            <label>起始里程（km）</label>
-            <input type="number" id="odo-start" placeholder="0" inputmode="decimal" step="0.1" oninput="calcAll()">
-          </div>
-          <div>
-            <label>結束里程（km）</label>
-            <input type="number" id="odo-end" placeholder="0" inputmode="decimal" step="0.1" oninput="calcAll()">
-          </div>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">里程數 KM</span>
-          <span style="font-family:var(--mono);font-size:20px;color:var(--accent);font-weight:500" id="dist-show-manual">—</span>
+      <button onclick="calcByMaps()" id="maps-btn"
+        style="width:100%;padding:14px;border-radius:8px;border:1px solid var(--accent2);background:transparent;color:var(--accent2);font-size:14px;font-family:var(--sans);font-weight:700;cursor:pointer">
+        🗺️ 用 Google Maps 計算行車里程
+      </button>
+      <div id="maps-status" style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-top:10px;text-align:center;min-height:16px"></div>
+      <div style="background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">里程數 KM</span>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span style="font-family:var(--mono);font-size:24px;color:var(--accent);font-weight:500" id="dist-show">—</span>
+          <span style="font-size:12px;color:var(--text2)">km</span>
         </div>
       </div>
-
-      <!-- Google Maps 計算區 -->
-      <div id="mode-maps" style="display:none">
-        <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:10px">
-          填好起始和結束地點後按下計算
-        </div>
-        <button onclick="calcByMaps()" id="maps-btn"
-          style="width:100%;padding:13px;border-radius:8px;border:1px solid var(--accent2);background:transparent;color:var(--accent2);font-size:14px;font-family:var(--sans);font-weight:700;cursor:pointer">
-          🗺️ 計算行車里程
-        </button>
-        <div id="maps-status" style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-top:10px;text-align:center;min-height:16px"></div>
-        <div style="background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-          <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">計算出的里程數 KM</span>
-          <span style="font-family:var(--mono);font-size:20px;color:var(--accent);font-weight:500" id="dist-show">—</span>
-        </div>
-        <!-- 隱藏欄位供計算用 -->
-        <input type="number" id="odo-start" style="display:none" oninput="calcAll()">
-        <input type="number" id="odo-end"   style="display:none" oninput="calcAll()">
-      </div>
+      <!-- 隱藏欄位供儲存用 -->
+      <input type="number" id="odo-start" style="display:none">
+      <input type="number" id="odo-end"   style="display:none">
     </div>
 
     <div class="card">
@@ -552,16 +521,13 @@ async function addRecord() {
   const start        = parseFloat(document.getElementById('odo-start').value);
   const end          = parseFloat(document.getElementById('odo-end').value);
 
-  if (!date)              { toast('請選擇日期',true); return; }
-  if (!startCompany)      { toast('請填寫起始公司',true); return; }
-  if (!endCompany)        { toast('請填寫結束公司',true); return; }
-  if (isNaN(start)||isNaN(end)) { toast('請輸入里程',true); return; }
-  if (end<start)          { toast('結束里程不能小於起始里程',true); return; }
+  if (!date)         { toast('請選擇日期',true); return; }
+  if (!startCompany) { toast('請填寫起始地點',true); return; }
+  if (!endCompany)   { toast('請填寫結束地點',true); return; }
+  if (mapsDist <= 0) { toast('請先用 Google Maps 計算里程',true); return; }
 
   const rate  = g('rate-input');
-  const start = parseFloat(document.getElementById('odo-start').value) || 0;
-  const end   = parseFloat(document.getElementById('odo-end').value)   || 0;
-  const dist  = mileageMode === 'maps' ? mapsDist : Math.max(0, +(end - start).toFixed(1));
+  const dist  = mapsDist;
   const mile  = +(dist * rate).toFixed(0);
   const hsr=g('cost-hsr'),etc=g('cost-etc'),park=g('cost-park'),oil=g('cost-oil');
   const total=mile+hsr+etc+park+oil;
@@ -584,6 +550,10 @@ async function addRecord() {
      'odo-start','odo-end','cost-hsr','cost-etc','cost-park','cost-oil']
       .forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
     clearWaypoints();
+    mapsDist = 0;
+    const distEl = document.getElementById('dist-show');
+    if (distEl) distEl.textContent = '—';
+    document.getElementById('maps-status').textContent = '';
     document.getElementById('dist-show').value='';
     ['r-mile','r-hsr','r-etc','r-park','r-oil'].forEach(i=>st(i,'— 元'));
     st('r-total','—');
@@ -830,18 +800,10 @@ async function calcByMaps() {
     result.routes[0].legs.forEach(leg => { totalMeters += leg.distance.value; });
     const totalKm = totalMeters / 1000;
 
-    // Google Maps 算出的是行車距離
+    // 儲存距離並更新顯示
     mapsDist = totalKm;
     const distEl = document.getElementById('dist-show');
-    if (distEl) distEl.textContent = totalKm.toFixed(1) + ' km';
-
-    // 如果是手動模式且有起始里程，也更新結束里程
-    if (mileageMode === 'manual') {
-      const startOdo = parseFloat(document.getElementById('odo-start').value);
-      if (!isNaN(startOdo) && startOdo > 0) {
-        document.getElementById('odo-end').value = +(startOdo + totalKm).toFixed(1);
-      }
-    }
+    if (distEl) distEl.textContent = totalKm.toFixed(1);
     calcAll();
 
     const wayptMsg = waypts.length > 0 ? `，含 ${waypts.length} 個中途站` : '';
@@ -859,26 +821,7 @@ async function calcByMaps() {
   btn.disabled = false;
 }
 let waypointCount = 0;
-let mileageMode   = 'manual';
-let mapsDist      = 0;
-
-function setMileageMode(mode) {
-  mileageMode = mode;
-  const mb  = document.getElementById('mode-manual-btn');
-  const gb  = document.getElementById('mode-maps-btn');
-  const md  = document.getElementById('mode-manual');
-  const gd  = document.getElementById('mode-maps');
-  if (mode === 'manual') {
-    mb.style.background='var(--accent)';   mb.style.color='#0f1117'; mb.style.borderColor='var(--accent)';
-    gb.style.background='transparent';     gb.style.color='var(--text2)'; gb.style.borderColor='var(--border)';
-    md.style.display='block'; gd.style.display='none';
-  } else {
-    gb.style.background='var(--accent2)';  gb.style.color='#0f1117'; gb.style.borderColor='var(--accent2)';
-    mb.style.background='transparent';     mb.style.color='var(--text2)'; mb.style.borderColor='var(--border)';
-    md.style.display='none'; gd.style.display='block';
-  }
-  calcAll();
-}
+let mapsDist      = 0; // Google Maps 算出的距離
 
 function addWaypoint() {
   waypointCount++;
@@ -932,15 +875,7 @@ const st = (id,v) => { const el=document.getElementById(id); if(el) el.textConte
 const fmtN = v => v>0?v.toLocaleString()+' 元':'— 元';
 
 function calcAll() {
-  let dist = 0;
-  if (mileageMode === 'manual') {
-    const s = g('odo-start'), e = g('odo-end');
-    dist = Math.max(0, e - s);
-    const el = document.getElementById('dist-show-manual');
-    if (el) el.textContent = dist > 0 ? dist.toFixed(1) + ' km' : '—';
-  } else {
-    dist = mapsDist;
-  }
+  const dist  = mapsDist;
   const rate  = g('rate-input');
   const mile  = +(dist * rate).toFixed(0);
   const hsr=g('cost-hsr'),etc=g('cost-etc'),park=g('cost-park'),oil=g('cost-oil');
