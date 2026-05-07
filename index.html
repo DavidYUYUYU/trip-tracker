@@ -768,9 +768,15 @@ async function calcByMaps() {
     result.routes[0].legs.forEach(leg => { totalMeters += leg.distance.value; });
     const totalKm = totalMeters / 1000;
 
-    // 填入結束里程
-    const startOdo = parseFloat(document.getElementById('odo-start').value) || 0;
-    document.getElementById('odo-end').value = +(startOdo + totalKm).toFixed(1);
+    // Google Maps 算出的是行車距離，直接填入結束里程（起始里程 + 距離）
+    // 如果有填起始里程就加上去，沒有就只填距離
+    const startOdo = parseFloat(document.getElementById('odo-start').value);
+    if (!isNaN(startOdo) && startOdo > 0) {
+      document.getElementById('odo-end').value = +(startOdo + totalKm).toFixed(1);
+    } else {
+      // 沒有起始里程，直接把距離填入結束里程欄位
+      document.getElementById('odo-end').value = totalKm.toFixed(1);
+    }
     calcAll();
 
     const wayptMsg = waypts.length > 0 ? `，含 ${waypts.length} 個中途站` : '';
