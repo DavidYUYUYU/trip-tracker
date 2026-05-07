@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5FZ515ftbyerH7SFI4dTiLk7cMCbV4gU&libraries=places&callback=initMaps" async defer></script>
 <style>
   :root {
     --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3352;
@@ -95,7 +96,28 @@
   .setting-lbl{font-size:14px}
   .setting-sub{font-size:11px;color:var(--text2);margin-top:2px;font-family:var(--mono)}
   .setting-row input{width:120px;text-align:right;font-size:15px;padding:8px 12px}
-  .sync-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-bottom:12px}
+  .waypoint-item {
+    display:flex; align-items:center; gap:8px;
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:8px; padding:8px 10px;
+    animation: slideIn 0.2s ease;
+  }
+  .waypoint-num {
+    font-family:var(--mono); font-size:11px; color:var(--accent);
+    background:var(--surface2); border-radius:4px;
+    padding:2px 6px; white-space:nowrap; flex-shrink:0;
+  }
+  .waypoint-item input {
+    flex:1; background:transparent; border:none;
+    border-bottom:1px solid var(--border); border-radius:0;
+    padding:4px 0; font-size:15px; color:var(--text);
+  }
+  .waypoint-item input:focus { border-bottom-color:var(--accent); outline:none; }
+  .waypoint-del {
+    background:transparent; border:none; color:var(--danger);
+    font-size:18px; cursor:pointer; padding:0 4px; flex-shrink:0;
+    line-height:1;
+  }align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-bottom:12px}
   .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
   .sync-dot.syncing{background:var(--accent3);animation:pulse 1s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
@@ -149,7 +171,7 @@
     <div class="card">
       <div class="card-title">🚗 起始</div>
       <div class="row field">
-        <div><label>起始公司</label><input type="text" id="start-company" placeholder="例：台中總公司"></div>
+        <div><label>起始公司／地點</label><input type="text" id="start-company" placeholder="例：台中總公司" autocomplete="off"></div>
         <div><label>起始時間</label><input type="time" id="start-time"></div>
       </div>
       <div class="field">
@@ -158,10 +180,20 @@
       </div>
     </div>
 
+    <!-- 中途站 -->
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span>📍 中途站</span>
+        <button onclick="addWaypoint()" style="background:var(--accent);color:#0f1117;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">＋ 新增</button>
+      </div>
+      <div id="waypoints-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="waypoints-empty" style="font-size:12px;color:var(--text2);font-family:var(--mono);text-align:center;padding:8px 0">無中途站（直接點上方新增）</div>
+    </div>
+
     <div class="card">
       <div class="card-title">🏁 結束</div>
       <div class="row field">
-        <div><label>結束公司</label><input type="text" id="end-company" placeholder="例：台北客戶"></div>
+        <div><label>結束公司／地點</label><input type="text" id="end-company" placeholder="例：台北客戶" autocomplete="off"></div>
         <div><label>結束時間</label><input type="time" id="end-time"></div>
       </div>
       <div class="row field">
@@ -174,6 +206,14 @@
           <input id="dist-show" placeholder="—" readonly style="background:var(--surface2);color:var(--accent);cursor:default">
         </div>
       </div>
+      <!-- Google Maps 計算按鈕 -->
+      <button onclick="calcByMaps()" id="maps-btn" style="
+        width:100%;padding:11px;margin-top:4px;border-radius:8px;border:1px solid var(--accent2);
+        background:transparent;color:var(--accent2);font-size:13px;font-family:var(--sans);
+        font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        🗺️ 用 Google Maps 自動計算里程
+      </button>
+      <div id="maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:6px;text-align:center;min-height:14px"></div>
     </div>
 
     <div class="card">
@@ -394,26 +434,34 @@ async function getSheetsList() {
 }
 
 // ── 確保使用者分頁存在，不存在則建立 ──
+const HEADERS = ['ID','Email','日期','起始公司','起始時間','起始里程',
+  '中途站','結束公司','結束時間','結束里程','里程數KM','客戶區域',
+  '回數票/ETC','高鐵費用','停車費','油資單','總費用','建立時間'];
+
 async function ensureUserSheet() {
   try {
+    // 1. 確認分頁存在
     const sheets = await getSheetsList();
     if (!sheets.includes(DATA_SHEET)) {
-      // 只有擁有者第一次使用才需要建立，其他人不需要
       toast('初始化資料分頁中...');
-      await sheetsBatchUpdate([{
-        addSheet: { properties: { title: DATA_SHEET } }
-      }]);
+      await sheetsBatchUpdate([{ addSheet: { properties: { title: DATA_SHEET } } }]);
       await new Promise(r => setTimeout(r, 800));
-      await sheetsAppend(`${DATA_SHEET}!A1`, [[
-        'ID','Email','日期','起始公司','起始時間','起始里程',
-        '結束公司','結束時間','結束里程','里程數KM','客戶區域',
-        '回數票/ETC','高鐵費用','停車費','油資單','總費用','建立時間'
-      ]]);
-      toast('✓ 初始化完成');
+    }
+
+    // 2. 檢查第一列是否有標題
+    let firstRow = [];
+    try {
+      const data = await sheetsGet(`${DATA_SHEET}!A1:Q1`);
+      firstRow = (data.values && data.values[0]) || [];
+    } catch(e) { firstRow = []; }
+
+    // 3. 沒有標題或標題不正確 → 寫入標題
+    if (!firstRow.length || firstRow[0] !== 'ID') {
+      await sheetsAppend(`${DATA_SHEET}!A1`, [HEADERS]);
+      toast('✓ 標題列已建立');
     }
     return true;
   } catch(e) {
-    // 非擁有者無法新增分頁 → 分頁應該已存在，繼續即可
     console.log('ensureUserSheet:', e.message);
     return true;
   }
@@ -423,13 +471,13 @@ async function ensureUserSheet() {
 async function loadRecords() {
   setSyncing(true);
   try {
-    const data = await sheetsGet(`${DATA_SHEET}!A:Q`);
+    const data = await sheetsGet(`${DATA_SHEET}!A:R`);
     const rows = data.values || [];
     if (rows.length <= 1) { records = []; }
     else {
-      // 欄位：A=ID, B=Email, C=日期, D=起始公司, E=起始時間, F=起始里程
-      //        G=結束公司, H=結束時間, I=結束里程, J=里程數, K=客戶區域
-      //        L=回數票/ETC, M=高鐵, N=停車, O=油資單, P=總費用, Q=建立時間
+      // A=ID, B=Email, C=日期, D=起始公司, E=起始時間, F=起始里程
+      // G=中途站, H=結束公司, I=結束時間, J=結束里程, K=里程數, L=客戶區域
+      // M=回數票, N=高鐵, O=停車, P=油資單, Q=總費用, R=建立時間
       records = rows.slice(1)
         .filter(r => r[1] === userEmail)
         .map(r => ({
@@ -438,16 +486,17 @@ async function loadRecords() {
           startCompany: r[3]  || '',
           startTime:    r[4]  || '',
           start:        +r[5] || 0,
-          endCompany:   r[6]  || '',
-          endTime:      r[7]  || '',
-          end:          +r[8] || 0,
-          dist:         +r[9] || 0,
-          area:         r[10] || '',
-          etc:          +r[11]|| 0,
-          hsr:          +r[12]|| 0,
-          park:         +r[13]|| 0,
-          oil:          +r[14]|| 0,
-          total:        +r[15]|| 0,
+          waypoints:    r[6]  || '',
+          endCompany:   r[7]  || '',
+          endTime:      r[8]  || '',
+          end:          +r[9] || 0,
+          dist:         +r[10]|| 0,
+          area:         r[11] || '',
+          etc:          +r[12]|| 0,
+          hsr:          +r[13]|| 0,
+          park:         +r[14]|| 0,
+          oil:          +r[15]|| 0,
+          total:        +r[16]|| 0,
         })).filter(r => r.id).reverse();
     }
     renderAll();
@@ -485,15 +534,18 @@ async function addRecord() {
   btn.disabled=true; btn.textContent='儲存中...';
 
   try {
-    await sheetsAppend(`${DATA_SHEET}!A:P`, [[
+    const waypoints = getWaypoints().join(' → ');
+    await sheetsAppend(`${DATA_SHEET}!A:R`, [[
       id, userEmail, date, startCompany, startTime, start,
+      waypoints,
       endCompany, endTime, end, dist, area,
       etc, hsr, park, oil, total, now
     ]]);
-    records.unshift({id,date,startCompany,startTime,start,endCompany,endTime,end,dist,area,etc,hsr,park,oil,total});
+    records.unshift({id,date,startCompany,startTime,start,waypoints,endCompany,endTime,end,dist,area,etc,hsr,park,oil,total});
     ['trip-area','start-company','start-time','end-company','end-time',
      'odo-start','odo-end','cost-hsr','cost-etc','cost-park','cost-oil']
       .forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    clearWaypoints();
     document.getElementById('dist-show').value='';
     ['r-mile','r-hsr','r-etc','r-park','r-oil'].forEach(i=>st(i,'— 元'));
     st('r-total','—');
@@ -533,7 +585,171 @@ async function deleteRecord(id) {
   } catch(e) { toast('刪除失敗：'+e.message,true); }
 }
 
-// ══ 計算 ══
+// ══ Google Maps 整合 ══
+let mapsReady    = false;
+let acStart      = null;
+let acEnd        = null;
+
+// Maps API 載入完成後初始化
+function initMaps() {
+  mapsReady = true;
+  const opts = {
+    componentRestrictions: { country: 'tw' }, // 限台灣
+    fields: ['name','formatted_address','geometry'],
+  };
+  acStart = new google.maps.places.Autocomplete(
+    document.getElementById('start-company'), opts);
+  acEnd   = new google.maps.places.Autocomplete(
+    document.getElementById('end-company'), opts);
+}
+
+// 讓 Maps API 載入完成後自動呼叫
+window.initMaps = initMaps;
+
+// 更新 Maps script 的 callback
+document.addEventListener('DOMContentLoaded', () => {
+  // 等 Maps API 載入
+  const checkMaps = setInterval(() => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      clearInterval(checkMaps);
+      initMaps();
+    }
+  }, 300);
+});
+
+// 中途站也加入 autocomplete
+function addWaypointAutocomplete(input) {
+  if (!mapsReady) return;
+  new google.maps.places.Autocomplete(input, {
+    componentRestrictions: { country: 'tw' },
+    fields: ['name','formatted_address'],
+  });
+}
+
+// ── 用 Google Maps Distance Matrix 計算里程 ──
+async function calcByMaps() {
+  const startVal = document.getElementById('start-company').value.trim();
+  const endVal   = document.getElementById('end-company').value.trim();
+  const status   = document.getElementById('maps-status');
+  const btn      = document.getElementById('maps-btn');
+
+  if (!startVal) { status.textContent = '⚠ 請先填寫起始地點'; return; }
+  if (!endVal)   { status.textContent = '⚠ 請先填寫結束地點'; return; }
+  if (!mapsReady){ status.textContent = '⚠ Google Maps 尚未載入，請稍後再試'; return; }
+
+  btn.disabled = true;
+  status.textContent = '🗺️ 計算中...';
+  status.style.color = 'var(--accent3)';
+
+  // 收集所有途點（起點 → 中途站 → 終點）
+  const waypts = getWaypoints();
+
+  try {
+    const service = new google.maps.DistanceMatrixService();
+
+    // 如果有中途站，用 Directions Service 計算總里程
+    let totalKm = 0;
+    if (waypts.length > 0) {
+      const directionsService = new google.maps.DirectionsService();
+      const result = await new Promise((resolve, reject) => {
+        directionsService.route({
+          origin:      startVal,
+          destination: endVal,
+          waypoints:   waypts.map(w => ({ location: w, stopover: true })),
+          travelMode:  google.maps.TravelMode.DRIVING,
+          region:      'TW',
+        }, (result, status) => {
+          if (status === 'OK') resolve(result);
+          else reject(new Error(status));
+        });
+      });
+      // 加總所有路段距離
+      result.routes[0].legs.forEach(leg => {
+        totalKm += leg.distance.value;
+      });
+      totalKm = totalKm / 1000;
+    } else {
+      // 沒有中途站，直接用 Distance Matrix
+      const result = await new Promise((resolve, reject) => {
+        service.getDistanceMatrix({
+          origins:      [startVal],
+          destinations: [endVal],
+          travelMode:   google.maps.TravelMode.DRIVING,
+          region:       'TW',
+        }, (result, status) => {
+          if (status === 'OK') resolve(result);
+          else reject(new Error(status));
+        });
+      });
+      const element = result.rows[0].elements[0];
+      if (element.status !== 'OK') throw new Error('無法計算此路線');
+      totalKm = element.distance.value / 1000;
+    }
+
+    // 填入結束里程（起始里程 + 計算距離）
+    const startOdo = parseFloat(document.getElementById('odo-start').value) || 0;
+    const endOdo   = +(startOdo + totalKm).toFixed(1);
+    document.getElementById('odo-end').value = endOdo;
+    calcAll();
+
+    status.textContent = `✓ ${totalKm.toFixed(1)} km（含 ${waypts.length} 個中途站）`;
+    status.style.color = 'var(--accent)';
+
+  } catch(e) {
+    status.textContent = '⚠ 計算失敗：' + e.message;
+    status.style.color = 'var(--danger)';
+  }
+  btn.disabled = false;
+}
+let waypointCount = 0;
+
+function addWaypoint() {
+  waypointCount++;
+  const list  = document.getElementById('waypoints-list');
+  const empty = document.getElementById('waypoints-empty');
+  empty.style.display = 'none';
+
+  const div = document.createElement('div');
+  div.className = 'waypoint-item';
+  div.id = `wp-${waypointCount}`;
+  div.innerHTML = `
+    <span class="waypoint-num">站 ${list.children.length + 1}</span>
+    <input type="text" placeholder="中途地點名稱" inputmode="text">
+    <button class="waypoint-del" onclick="removeWaypoint('wp-${waypointCount}')">×</button>
+  `;
+  list.appendChild(div);
+  const input = div.querySelector('input');
+  input.focus();
+  addWaypointAutocomplete(input);
+  updateWaypointNumbers();
+}
+
+function removeWaypoint(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  updateWaypointNumbers();
+  const list = document.getElementById('waypoints-list');
+  document.getElementById('waypoints-empty').style.display =
+    list.children.length === 0 ? 'block' : 'none';
+}
+
+function updateWaypointNumbers() {
+  const items = document.querySelectorAll('.waypoint-item');
+  items.forEach((el, i) => {
+    el.querySelector('.waypoint-num').textContent = `站 ${i+1}`;
+  });
+}
+
+function getWaypoints() {
+  return Array.from(document.querySelectorAll('.waypoint-item input'))
+    .map(i => i.value.trim()).filter(Boolean);
+}
+
+function clearWaypoints() {
+  document.getElementById('waypoints-list').innerHTML = '';
+  document.getElementById('waypoints-empty').style.display = 'block';
+  waypointCount = 0;
+}
 const g  = id => parseFloat(document.getElementById(id).value)||0;
 const st = (id,v) => { document.getElementById(id).textContent=v; };
 const fmtN = v => v>0?v.toLocaleString()+' 元':'— 元';
@@ -600,8 +816,8 @@ function renderRecords() {
     ].filter(Boolean).join('');
     return `<div class="record-item">
       <div class="record-top">
-        <div>
-          <div class="record-desc">${r.startCompany} → ${r.endCompany}</div>
+        <div><div class="record-desc">${r.startCompany} → ${r.endCompany}</div>
+          ${r.waypoints?`<div class="record-date" style="margin-top:2px;color:var(--accent2)">📍 ${r.waypoints}</div>`:''}
           <div class="record-date">${r.date}${r.area?' ／ '+r.area:''}</div>
           <div class="record-date" style="margin-top:2px">${r.startTime?r.startTime+' 出發':''} ${r.endTime?'→ '+r.endTime+' 抵達':''}</div>
         </div>
@@ -690,20 +906,21 @@ function doExport(type) {
   setExportLoading(true);
 
   // 匯出欄位（不含費率）
-  const headers = ['日期','起始公司','起始時間','起始里程','結束公司','結束時間','結束里程','里程數KM','客戶區域','回數票','油資單','高鐵費用','停車費','總費用'];
+  const headers = ['日期','起始公司','起始時間','起始里程','中途站','結束公司','結束時間','結束里程','里程數KM','客戶區域','回數票','油資單','高鐵費用','停車費','總費用'];
   const sum = k => filtered.reduce((a,r)=>a+(+r[k]||0),0);
   const dataRows = filtered.map(r=>[
     r.date, r.startCompany, r.startTime, r.start,
+    r.waypoints||'',
     r.endCompany, r.endTime, r.end, r.dist, r.area,
     r.etc, r.oil, r.hsr, r.park, r.total
   ]);
-  const totalRow = ['合計','','','','','','',sum('dist').toFixed(1),'',
+  const totalRow = ['合計','','','','','','','',sum('dist').toFixed(1),'',
     sum('etc'),sum('oil'),sum('hsr'),sum('park'),sum('total')];
 
   if (type==='excel') {
     const wb=XLSX.utils.book_new();
     const ws=XLSX.utils.aoa_to_sheet([headers,...dataRows,totalRow]);
-    ws['!cols']=[10,14,10,10,14,10,10,10,12,10,10,10,10,12].map(w=>({wch:w}));
+    ws['!cols']=[10,14,10,10,20,14,10,10,10,12,10,10,10,10,12].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,ws,'出差費用紀錄');
     XLSX.writeFile(wb,`出差費用紀錄${m?'_'+m:''}.xlsx`);
     toast('✓ Excel 已下載');
@@ -720,6 +937,7 @@ function doExport(type) {
   } else {
     const trRows=filtered.map(r=>`<tr>
       <td>${r.date}</td><td>${r.startCompany}</td><td>${r.startTime}</td><td class="r">${r.start}</td>
+      <td>${r.waypoints||''}</td>
       <td>${r.endCompany}</td><td>${r.endTime}</td><td class="r">${r.end}</td>
       <td class="r">${r.dist}</td><td>${r.area||''}</td>
       <td class="r">${r.etc>0?r.etc:''}</td><td class="r">${r.oil>0?r.oil:''}</td>
@@ -753,13 +971,14 @@ tr:nth-child(even)td{background:#f9f9f9}
 </div>
 <table><thead><tr>
 <th>日期</th><th>起始公司</th><th>起始時間</th><th class="r">起始里程</th>
+<th>中途站</th>
 <th>結束公司</th><th>結束時間</th><th class="r">結束里程</th>
 <th class="r">里程KM</th><th>客戶區域</th>
 <th class="r">回數票</th><th class="r">油資單</th><th class="r">高鐵費</th><th class="r">停車費</th><th class="r">合計</th>
 </tr></thead><tbody>
 ${trRows}
 <tr class="foot">
-<td colspan="7">合計</td><td class="r">${sum('dist').toFixed(1)}</td><td></td>
+<td colspan="7">合計</td><td class="r"></td><td class="r">${sum('dist').toFixed(1)}</td><td></td>
 <td class="r">${sum('etc').toLocaleString()}</td>
 <td class="r">${sum('oil').toLocaleString()}</td>
 <td class="r">${sum('hsr').toLocaleString()}</td>
