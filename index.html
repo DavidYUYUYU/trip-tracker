@@ -1199,7 +1199,10 @@ function clearWaypoints() {
 }
 
 // ══ 匯出 ══
-function doExport(type) {
+async function doExport(type) {
+  // 先重新載入確保費用資料是最新的
+  await loadAll();
+
   const m        = document.getElementById('filter-month')?.value||'';
   const cur      = settings.currency||'NT$';
   const filtered = getFiltered();
@@ -1339,7 +1342,7 @@ async function saveModalExpenses() {
     ]]);
     expenses[modalTripId] = { id:expId, mile:modalMileCost, hsr, etc, park, oil, taxi, total };
     document.getElementById('exp-modal').style.display = 'none';
-    renderAll();
+    await loadAll();
     updateExpTripSelect();
     toast(`✓ 費用已儲存！總計 ${cur} ${total.toLocaleString()}`);
   } catch(e) {
