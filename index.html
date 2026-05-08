@@ -390,6 +390,59 @@ select:focus{border-color:var(--accent)}
   </div>
 </div>
 
+
+<!-- ══ 費用 Modal ══ -->
+<div id="exp-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);overflow-y:auto">
+  <div style="background:var(--surface);border-radius:16px;margin:20px auto;max-width:480px;padding:24px;width:90%">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:14px">💳 填寫費用明細</div>
+    <div id="modal-trip-info" style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--text2);font-family:var(--mono)"></div>
+
+    <!-- 里程費用（自動計算，唯讀） -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">📏</span>
+      <span style="font-size:13px;flex:1">里程費用<span id="modal-mile-rate" style="font-size:11px;color:var(--text2);margin-left:6px"></span></span>
+      <span style="font-family:var(--mono);font-size:16px;color:var(--accent);font-weight:500" id="modal-mile-cost">NT$ 0</span>
+    </div>
+
+    <!-- 各項費用輸入 -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">🚄</span>
+      <span style="font-size:13px;flex:1">高鐵費用</span>
+      <input type="number" id="m-hsr" placeholder="0" inputmode="decimal" style="width:110px;text-align:right;padding:8px 10px;font-size:15px" oninput="updateModalTotal()">
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">🛣️</span>
+      <span style="font-size:13px;flex:1">回數票/ETC</span>
+      <input type="number" id="m-etc" placeholder="0" inputmode="decimal" style="width:110px;text-align:right;padding:8px 10px;font-size:15px" oninput="updateModalTotal()">
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">🅿️</span>
+      <span style="font-size:13px;flex:1">停車費</span>
+      <input type="number" id="m-park" placeholder="0" inputmode="decimal" style="width:110px;text-align:right;padding:8px 10px;font-size:15px" oninput="updateModalTotal()">
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">⛽</span>
+      <span style="font-size:13px;flex:1">油資單</span>
+      <input type="number" id="m-oil" placeholder="0" inputmode="decimal" style="width:110px;text-align:right;padding:8px 10px;font-size:15px" oninput="updateModalTotal()">
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">🚕</span>
+      <span style="font-size:13px;flex:1">計程車費</span>
+      <input type="number" id="m-taxi" placeholder="0" inputmode="decimal" style="width:110px;text-align:right;padding:8px 10px;font-size:15px" oninput="updateModalTotal()">
+    </div>
+
+    <!-- 總計 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;margin-top:4px">
+      <span style="font-size:14px;font-weight:700">總計</span>
+      <span style="font-family:var(--mono);font-size:22px;color:var(--accent);font-weight:700" id="modal-total">NT$ 0</span>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button onclick="skipExpenses()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:14px;font-weight:700;cursor:pointer">略過</button>
+      <button onclick="saveModalExpenses()" style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#0f1117;font-size:14px;font-weight:700;cursor:pointer">✓ 儲存費用</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <!-- Bottom Tabs -->
@@ -648,16 +701,8 @@ async function addTrip() {
       waypoints, endCompany, endTime, mapsDist.toFixed(1), area, now
     ]]);
 
-    // 同時自動儲存里程費用到費用明細
     const rate     = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
     const mileCost = mapsDist > 0 && rate > 0 ? +(mapsDist * rate).toFixed(0) : 0;
-    if (mileCost > 0) {
-      const expId = (Date.now()+1).toString();
-      await sAppend(`${EXP_SHEET}!A:L`, [[
-        expId, id, userEmail, date, mileCost, 0, 0, 0, 0, 0, mileCost, now
-      ]]);
-      expenses[id] = { id:expId, mile:mileCost, hsr:0, etc:0, park:0, oil:0, taxi:0, total:mileCost };
-    }
 
     trips.unshift({ id, date, startCompany, startTime, waypoints, endCompany, endTime, dist:mapsDist, area });
 
@@ -669,17 +714,9 @@ async function addTrip() {
     document.getElementById('dist-show').textContent = '—';
     document.getElementById('maps-status').textContent = '';
 
-    const cur = settings.currency || 'NT$';
-    if (mileCost > 0) {
-      toast(`✓ 行程已儲存，里程費 ${cur} ${mileCost.toLocaleString()} 已記錄`);
-    } else {
-      const rate2 = parseFloat(document.getElementById('default-rate').value) || 0;
-      if (mapsDist > 0 && rate2 <= 0) {
-        toast('✓ 行程已儲存（請到設定頁填寫費率以自動計算里程費）');
-      } else {
-        toast('✓ 行程已儲存，可到「費用」頁補填其他費用');
-      }
-    }
+    // 開啟費用輸入 Modal
+    const tripInfo = `${date} ${startCompany} → ${endCompany||'—'}${mapsDist>0?' ｜ '+mapsDist.toFixed(1)+' km':''}`;
+    openExpModal(id, tripInfo, mileCost);
     updateExpTripSelect();
     renderAll();
   } catch(e) { toast('儲存失敗：'+e.message, true); }
@@ -1252,6 +1289,63 @@ tr:nth-child(even)td{background:#f9f9f9}
   }
 }
 
+
+// ══ 費用 Modal ══
+let modalTripId   = '';
+let modalMileCost = 0;
+
+function openExpModal(tripId, tripInfo, mileCost) {
+  modalTripId   = tripId;
+  modalMileCost = mileCost;
+  const cur     = settings.currency || 'NT$';
+  const rate    = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
+
+  document.getElementById('modal-trip-info').textContent = tripInfo;
+  document.getElementById('modal-mile-rate').textContent = rate > 0 ? `（${rate} 元/km）` : '';
+  document.getElementById('modal-mile-cost').textContent = `${cur} ${mileCost.toLocaleString()}`;
+  ['m-hsr','m-etc','m-park','m-oil','m-taxi'].forEach(id => document.getElementById(id).value = '');
+  updateModalTotal();
+  document.getElementById('exp-modal').style.display = 'block';
+}
+
+function updateModalTotal() {
+  const cur   = settings.currency || 'NT$';
+  const extra = ['m-hsr','m-etc','m-park','m-oil','m-taxi'].reduce((a,id) => a+(parseFloat(document.getElementById(id).value)||0), 0);
+  const total = modalMileCost + extra;
+  document.getElementById('modal-total').textContent = `${cur} ${total.toLocaleString()}`;
+}
+
+function skipExpenses() {
+  document.getElementById('exp-modal').style.display = 'none';
+  toast('行程已儲存（費用可稍後到「💳 費用」頁面填寫）');
+}
+
+async function saveModalExpenses() {
+  const cur   = settings.currency || 'NT$';
+  const hsr   = parseFloat(document.getElementById('m-hsr').value)  || 0;
+  const etc   = parseFloat(document.getElementById('m-etc').value)  || 0;
+  const park  = parseFloat(document.getElementById('m-park').value) || 0;
+  const oil   = parseFloat(document.getElementById('m-oil').value)  || 0;
+  const taxi  = parseFloat(document.getElementById('m-taxi').value) || 0;
+  const total = modalMileCost + hsr + etc + park + oil + taxi;
+  const now   = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei'});
+  const trip  = trips.find(t=>t.id===modalTripId);
+
+  try {
+    const expId = (Date.now()+1).toString();
+    await sAppend(`${EXP_SHEET}!A:L`, [[
+      expId, modalTripId, userEmail, trip?.date||'',
+      modalMileCost, hsr, etc, park, oil, taxi, total, now
+    ]]);
+    expenses[modalTripId] = { id:expId, mile:modalMileCost, hsr, etc, park, oil, taxi, total };
+    document.getElementById('exp-modal').style.display = 'none';
+    renderAll();
+    updateExpTripSelect();
+    toast(`✓ 費用已儲存！總計 ${cur} ${total.toLocaleString()}`);
+  } catch(e) {
+    toast('費用儲存失敗：'+e.message, true);
+  }
+}
 // ══ Toast ══
 function toast(msg,isErr) {
   const t=document.getElementById('toast');
