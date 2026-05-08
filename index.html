@@ -860,8 +860,8 @@ async function saveExpenses() {
       let rowIdx = -1;
       for (let i=1;i<rows.length;i++) { if(rows[i][0]===existing.id){rowIdx=i+1;break;} }
       if (rowIdx>0) {
-        await sUpdate(`${EXP_SHEET}!A${rowIdx}:K${rowIdx}`,
-          [[existing.id, tid, userEmail, trip?.date||'', hsr, etc, park, oil, taxi, total, now]]);
+        await sUpdate(`${EXP_SHEET}!A${rowIdx}:L${rowIdx}`,
+          [[existing.id, tid, userEmail, trip?.date||'', mile, hsr, etc, park, oil, taxi, total, now]]);
       }
     } else {
       // 新增
@@ -870,7 +870,7 @@ async function saveExpenses() {
         [[id, tid, userEmail, trip?.date||'', mile, hsr, etc, park, oil, taxi, total, now]]);
       expenses[tid] = { id, mile, hsr, etc, park, oil, taxi, total };
     }
-    expenses[tid] = { ...(expenses[tid]||{}), hsr, etc, park, oil, taxi, total };
+    expenses[tid] = { ...(expenses[tid]||{}), mile, hsr, etc, park, oil, taxi, total };
     showSavedExpenses(tid, expenses[tid]);
     updateExpTripSelect();
     renderAll();
