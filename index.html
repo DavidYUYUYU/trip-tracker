@@ -271,9 +271,16 @@ select:focus{border-color:var(--accent)}
           <span style="font-size:12px;color:var(--text2)">km</span>
         </div>
       </div>
-      <div id="mile-cost-box" style="display:none;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">里程費用（<span id="rate-display">—</span> 元/km）</span>
-        <span style="font-family:var(--mono);font-size:18px;color:var(--accent2);font-weight:500" id="mile-cost-show">—</span>
+      <!-- 費率（直接在新增頁面顯示和編輯）-->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">費率（元/km）</span>
+        <input type="number" id="add-rate" placeholder="例：7" inputmode="decimal" step="0.5"
+          style="width:100px;text-align:right;font-size:16px;padding:6px 10px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--accent);font-family:var(--mono)"
+          oninput="showMileCost()">
+      </div>
+      <div id="mile-cost-box" style="display:none;margin-top:8px;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">預估里程費用</span>
+        <span style="font-family:var(--mono);font-size:18px;color:var(--accent);font-weight:500" id="mile-cost-show">—</span>
       </div>
     </div>
 
@@ -624,6 +631,9 @@ async function loadSettings() {
   document.getElementById('user-name').value    = settings.name;
   document.getElementById('default-rate').value = settings.rate;
   document.getElementById('currency-sym').value  = settings.currency;
+  // 同步費率到新增頁面
+  const addRateEl = document.getElementById('add-rate');
+  if (addRateEl) addRateEl.value = settings.rate;
 }
 
 async function saveSettings() {
@@ -701,7 +711,7 @@ async function addTrip() {
       waypoints, endCompany, endTime, mapsDist.toFixed(1), area, now
     ]]);
 
-    const rate     = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
+    const rate     = parseFloat(document.getElementById('add-rate').value) || 0;
     const mileCost = mapsDist > 0 && rate > 0 ? +(mapsDist * rate).toFixed(0) : 0;
     const distSnap = mapsDist; // 在清空前先存起來
 
@@ -1079,20 +1089,16 @@ function setupSearchEl(input) {
 }
 
 function showMileCost() {
-  const rate = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
-  const box  = document.getElementById('mile-cost-box');
-  const rateEl = document.getElementById('rate-display');
+  const rate   = parseFloat(document.getElementById('add-rate').value) || 0;
+  const box    = document.getElementById('mile-cost-box');
   const costEl = document.getElementById('mile-cost-show');
+  const cur    = settings.currency || 'NT$';
   if (mapsDist > 0 && rate > 0) {
     const cost = +(mapsDist * rate).toFixed(0);
-    const cur  = settings.currency || 'NT$';
-    rateEl.textContent = rate;
     costEl.textContent = `${cur} ${cost.toLocaleString()}`;
     box.style.display = 'flex';
   } else if (mapsDist > 0 && rate <= 0) {
-    rateEl.textContent = '未設定';
-    costEl.textContent = '請至設定頁填寫費率';
-    costEl.style.fontSize = '12px';
+    costEl.textContent = '請輸入費率';
     box.style.display = 'flex';
   } else {
     box.style.display = 'none';
@@ -1305,7 +1311,7 @@ function openExpModal(tripId, tripInfo, mileCost) {
   modalTripId   = tripId;
   modalMileCost = mileCost;
   const cur     = settings.currency || 'NT$';
-  const rate    = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
+  const rate    = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
 
   document.getElementById('modal-trip-info').textContent = tripInfo;
   document.getElementById('modal-mile-rate').textContent = rate > 0
