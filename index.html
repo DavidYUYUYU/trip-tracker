@@ -3,137 +3,168 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>里程費用計算</title>
+<title>出差費用計算</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5FZ515ftbyerH7SFI4dTiLk7cMCbV4gU&libraries=places&callback=initMaps" async defer></script>
 <style>
-  :root {
-    --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3352;
-    --accent:#5be0a8;--accent2:#3ec8f0;--accent3:#f9c74f;
-    --danger:#f06292;--hsr:#c084fc;--park:#fb923c;
-    --text:#e8ecf4;--text2:#8b91a8;
-    --mono:'DM Mono',monospace;--sans:'Noto Sans TC',sans-serif;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:80px}
-  #login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;text-align:center}
-  .login-logo{font-family:var(--mono);font-size:36px;color:var(--accent);margin-bottom:8px}
-  .login-sub{font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:0.1em;margin-bottom:48px}
-  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 28px;width:100%;max-width:360px}
-  .login-title{font-size:18px;font-weight:700;margin-bottom:8px}
-  .login-desc{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.6}
-  .btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:15px;font-family:var(--sans);font-weight:700;cursor:pointer;transition:all 0.2s}
-  .btn-google:hover{border-color:var(--accent);color:var(--accent)}
-  .btn-google:disabled{opacity:0.5;cursor:not-allowed}
-  #app{display:none}
-  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
-  .header h1{font-family:var(--mono);font-size:16px;color:var(--accent)}
-  .user-badge{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text2);font-family:var(--mono);cursor:pointer;transition:all 0.2s}
-  .user-badge:hover{border-color:var(--danger);color:var(--danger)}
-  .user-avatar{width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;color:#0f1117;font-weight:700}
-  .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:57px;z-index:40}
-  .tab{flex:1;padding:12px 8px;text-align:center;font-size:13px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;font-weight:500}
-  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-  .page{display:none;padding:20px;max-width:600px;margin:0 auto}
-  .page.active{display:block}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
-  .card-title{font-size:11px;font-family:var(--mono);color:var(--text2);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:14px}
-  .hint{font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:-8px;margin-bottom:14px}
-  label{display:block;font-size:12px;color:var(--text2);margin-bottom:6px;font-family:var(--mono)}
-  input[type="text"],input[type="number"],input[type="date"],input[type="month"]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;padding:12px 14px;font-family:var(--mono);outline:none;transition:border-color 0.2s;-webkit-appearance:none}
-  input:focus{border-color:var(--accent)}
-  input::placeholder{color:var(--text2);opacity:0.5}
-  .field{margin-bottom:14px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .cost-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-  .cost-field{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px}
-  .cost-field label{display:flex;align-items:center;gap:5px;font-size:11px;margin-bottom:8px}
-  .cost-field input{background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 0;font-size:18px;font-weight:500;color:var(--text)}
-  .cost-field input:focus{border-bottom-color:var(--accent);outline:none}
-  .result-box{background:var(--bg);border:1px solid var(--accent);border-radius:10px;padding:16px}
-  .result-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0}
-  .result-row+.result-row{border-top:1px solid var(--border)}
-  .result-row.total{border-top:2px solid var(--accent)!important;padding-top:12px;margin-top:4px}
-  .result-lbl{font-size:12px;color:var(--text2);font-family:var(--mono)}
-  .result-num{font-family:var(--mono);font-size:15px;color:var(--text)}
-  .result-num.big{font-size:28px;color:var(--accent);font-weight:500}
-  .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;font-family:var(--sans);font-weight:700;cursor:pointer;transition:all 0.15s}
-  .btn-primary{background:var(--accent);color:#0f1117}
-  .btn-primary:disabled{opacity:0.5;cursor:not-allowed}
-  .btn-primary:active:not(:disabled){opacity:0.8;transform:scale(0.98)}
-  .btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border);font-size:13px;padding:10px}
-  .btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);font-size:12px;padding:6px 12px;width:auto;border-radius:6px}
-  .btn-export{background:var(--surface2);color:var(--accent2);border:1px solid var(--accent2);font-size:13px;padding:10px;flex:1}
-  .export-row{display:flex;gap:10px;margin-bottom:16px}
-  .summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
-  .summary-top{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border)}
-  .summary-bottom{display:grid;grid-template-columns:1fr 1fr 1fr 1fr}
-  .sum-cell{padding:14px 10px;text-align:center;border-right:1px solid var(--border)}
-  .sum-cell:last-child{border-right:none}
-  .sum-val{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--accent)}
-  .sum-val.sm{font-size:13px}
-  .sum-lbl{font-size:10px;color:var(--text2);font-family:var(--mono);margin-top:3px}
-  .record-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;animation:slideIn 0.25s ease}
-  @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-  .record-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
-  .record-desc{font-size:14px;font-weight:700}
-  .record-date{font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:3px}
-  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-  .chip{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:4px;background:var(--bg);color:var(--text2);border:1px solid var(--border)}
-  .chip.km{color:var(--accent);border-color:var(--accent)}
-  .chip.grand{color:var(--accent2);border-color:var(--accent2)}
-  .chip.hsr{color:var(--hsr);border-color:var(--hsr)}
-  .chip.etc{color:var(--accent3);border-color:var(--accent3)}
-  .chip.park{color:var(--park);border-color:var(--park)}
-  .extra-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
-  .filter-row{display:flex;gap:8px;margin-bottom:14px;align-items:center}
-  .filter-row input{flex:1;font-size:13px;padding:9px 12px}
-  .empty{text-align:center;color:var(--text2);font-size:13px;padding:40px 0;font-family:var(--mono);line-height:1.8}
-  .setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
-  .setting-row:last-child{border-bottom:none}
-  .setting-lbl{font-size:14px}
-  .setting-sub{font-size:11px;color:var(--text2);margin-top:2px;font-family:var(--mono)}
-  .setting-row input{width:120px;text-align:right;font-size:15px;padding:8px 12px}
-  .waypoint-item {
-    display:flex; align-items:center; gap:8px;
-    background:var(--bg); border:1px solid var(--border);
-    border-radius:8px; padding:8px 10px;
-    animation: slideIn 0.2s ease;
-  }
-  .waypoint-num {
-    font-family:var(--mono); font-size:11px; color:var(--accent);
-    background:var(--surface2); border-radius:4px;
-    padding:2px 6px; white-space:nowrap; flex-shrink:0;
-  }
-  .waypoint-item input {
-    flex:1; background:transparent; border:none;
-    border-bottom:1px solid var(--border); border-radius:0;
-    padding:4px 0; font-size:15px; color:var(--text);
-  }
-  .waypoint-item input:focus { border-bottom-color:var(--accent); outline:none; }
-  .waypoint-del {
-    background:transparent; border:none; color:var(--danger);
-    font-size:18px; cursor:pointer; padding:0 4px; flex-shrink:0;
-    line-height:1;
-  }
-  .sync-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-bottom:12px}
-  .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-  .sync-dot.syncing{background:var(--accent3);animation:pulse 1s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#0f1117;font-family:var(--mono);font-size:13px;font-weight:500;padding:10px 20px;border-radius:30px;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.error{background:var(--danger);color:#fff}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3352;
+  --accent:#5be0a8;--accent2:#3ec8f0;--accent3:#f9c74f;
+  --danger:#f06292;--hsr:#c084fc;--park:#fb923c;
+  --text:#e8ecf4;--text2:#8b91a8;
+  --mono:'DM Mono',monospace;--sans:'Noto Sans TC',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:100px}
+
+/* Login */
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;text-align:center}
+.login-logo{font-family:var(--mono);font-size:36px;color:var(--accent);margin-bottom:8px}
+.login-sub{font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:0.1em;margin-bottom:48px}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 28px;width:100%;max-width:360px}
+.login-title{font-size:18px;font-weight:700;margin-bottom:8px}
+.login-desc{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.6}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:15px;font-family:var(--sans);font-weight:700;cursor:pointer;transition:all 0.2s}
+.btn-google:hover{border-color:var(--accent);color:var(--accent)}
+.btn-google:disabled{opacity:0.5;cursor:not-allowed}
+
+/* App */
+#app{display:none}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.header h1{font-family:var(--mono);font-size:16px;color:var(--accent)}
+.user-badge{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text2);font-family:var(--mono);cursor:pointer}
+.user-badge:hover{border-color:var(--danger);color:var(--danger)}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;color:#0f1117;font-weight:700}
+
+/* Bottom Tabs */
+.bottom-tabs{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:40;padding-bottom:env(safe-area-inset-bottom)}
+.btab{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 4px;cursor:pointer;color:var(--text2);font-size:10px;font-family:var(--mono);gap:4px;transition:all 0.2s;border:none;background:none}
+.btab .icon{font-size:20px}
+.btab.active{color:var(--accent)}
+.btab.active .icon{filter:drop-shadow(0 0 4px var(--accent))}
+
+/* Pages */
+.page{display:none;padding:16px;max-width:600px;margin:0 auto}
+.page.active{display:block}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px}
+.card-title{font-size:11px;font-family:var(--mono);color:var(--text2);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:14px}
+
+/* Form */
+label{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-family:var(--mono)}
+input[type="text"],input[type="number"],input[type="date"],input[type="month"],input[type="time"]{
+  width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-size:15px;padding:11px 13px;font-family:var(--mono);
+  outline:none;transition:border-color 0.2s;-webkit-appearance:none
+}
+input:focus{border-color:var(--accent)}
+input::placeholder{color:var(--text2);opacity:0.5}
+.field{margin-bottom:12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:13px;border-radius:10px;border:none;font-size:15px;font-family:var(--sans);font-weight:700;cursor:pointer;transition:all 0.15s}
+.btn-primary{background:var(--accent);color:#0f1117}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+.btn-secondary{background:var(--surface2);color:var(--accent2);border:1px solid var(--accent2)}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);font-size:12px;padding:5px 11px;width:auto;border-radius:6px}
+.btn-export{background:var(--surface2);color:var(--accent2);border:1px solid var(--accent2);font-size:13px;padding:10px;flex:1}
+.export-row{display:flex;gap:8px;margin-bottom:14px}
+
+/* Route line */
+.route-line{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.route-dot-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-top:14px}
+.dot-green{width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.dot-red{width:10px;height:10px;border-radius:50%;background:var(--danger);flex-shrink:0}
+.dot-blue{width:8px;height:8px;border-radius:50%;border:2px solid var(--accent2);background:var(--bg);flex-shrink:0}
+.route-vline{width:2px;background:var(--border);flex:1;min-height:16px;margin:2px 0}
+
+/* Waypoints */
+.wp-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px}
+.wp-num{font-family:var(--mono);font-size:11px;color:var(--accent2);background:var(--surface2);border-radius:4px;padding:2px 7px;flex-shrink:0}
+
+/* Vehicle toggle */
+.vtoggle{display:flex;gap:8px;margin-bottom:10px}
+.vbtn{flex:1;padding:9px;border-radius:8px;border:2px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.vbtn.active{border-color:var(--accent);background:var(--accent);color:#0f1117}
+
+/* Mileage display */
+.dist-box{background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.dist-val{font-family:var(--mono);font-size:24px;color:var(--accent);font-weight:500}
+
+/* Records */
+.record-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;animation:slideIn 0.2s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.record-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.record-desc{font-size:14px;font-weight:700}
+.record-meta{font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:3px}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.chip{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:4px;background:var(--bg);color:var(--text2);border:1px solid var(--border)}
+.chip.green{color:var(--accent);border-color:var(--accent)}
+.chip.blue{color:var(--accent2);border-color:var(--accent2)}
+.chip.purple{color:var(--hsr);border-color:var(--hsr)}
+.chip.yellow{color:var(--accent3);border-color:var(--accent3)}
+.chip.orange{color:var(--park);border-color:var(--park)}
+
+/* Expense items */
+.exp-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.exp-item:last-child{border-bottom:none}
+.exp-icon{font-size:20px;flex-shrink:0}
+.exp-label{font-size:13px;flex:1}
+.exp-amount{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500}
+
+/* Summary */
+.summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.sum-top{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border)}
+.sum-cell{padding:12px 8px;text-align:center;border-right:1px solid var(--border)}
+.sum-cell:last-child{border-right:none}
+.sum-val{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--accent)}
+.sum-val.blue{color:var(--accent2)}
+.sum-val.sm{font-size:13px}
+.sum-lbl{font-size:10px;color:var(--text2);font-family:var(--mono);margin-top:2px}
+
+/* Filter */
+.filter-row{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+.filter-row input{flex:1;font-size:13px;padding:9px 12px}
+.empty{text-align:center;color:var(--text2);font-size:13px;padding:40px 0;font-family:var(--mono);line-height:2}
+
+/* Settings */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-lbl{font-size:14px}
+.setting-sub{font-size:11px;color:var(--text2);margin-top:2px;font-family:var(--mono)}
+.setting-row input{width:130px;text-align:right;font-size:14px;padding:8px 10px}
+
+/* Select dropdown */
+select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;padding:11px 13px;font-family:var(--mono);outline:none;-webkit-appearance:none}
+select:focus{border-color:var(--accent)}
+
+/* Sync */
+.sync-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin-bottom:10px}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.sync-dot.on{background:var(--accent3);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* Toast */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#0f1117;font-family:var(--mono);font-size:13px;font-weight:500;padding:10px 20px;border-radius:30px;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--danger);color:#fff}
+
+/* Month title */
+.month-title{font-family:var(--mono);font-size:15px;color:var(--accent);font-weight:500;margin-bottom:10px}
 </style>
 </head>
 <body>
 
+<!-- Login -->
 <div id="login-screen">
   <div class="login-logo">⊙</div>
   <div class="login-sub">BUSINESS TRIP TRACKER</div>
   <div class="login-card">
-    <div class="login-title">里程費用計算</div>
+    <div class="login-title">出差費用計算</div>
     <div class="login-desc">使用 Google 帳號登入<br>資料儲存在雲端，每人獨立隔離</div>
     <div id="login-status" style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:16px;min-height:16px"></div>
     <button class="btn-google" id="login-btn" onclick="startLogin()">
@@ -148,939 +179,259 @@
   </div>
 </div>
 
+<!-- App -->
 <div id="app">
   <div class="header">
-    <h1>⊙ 里程費用計算</h1>
+    <h1>⊙ 出差費用計算</h1>
     <div class="user-badge" id="user-badge" onclick="confirmLogout()">
       <div class="user-avatar" id="user-initial">?</div>
       <span id="user-email-short">載入中</span>
     </div>
   </div>
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('add')">＋ 新增</div>
-    <div class="tab" onclick="switchTab('records')">紀錄</div>
-    <div class="tab" onclick="switchTab('settings')">設定</div>
-  </div>
 
+  <!-- ══ 新增行程 ══ -->
   <div class="page active" id="page-add">
     <div class="card">
       <div class="card-title">📋 基本資訊</div>
-      <div class="row field">
+      <div class="row2 field">
         <div><label>日期</label><input type="date" id="trip-date"></div>
-        <div><label>客戶區域</label><input type="text" id="trip-area" placeholder="例：台北、新竹"></div>
+        <div><label>客戶區域</label><input type="text" id="trip-area" placeholder="例：台北"></div>
       </div>
     </div>
 
-    <!-- 路線卡片（起始＋中途站＋結束合一） -->
     <div class="card">
       <div class="card-title">🗺️ 路線</div>
-
       <!-- 起始 -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-          <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--accent)"></div>
-          <div style="width:2px;flex:1;min-height:20px;background:var(--border)"></div>
+      <div class="route-line">
+        <div class="route-dot-col">
+          <div class="dot-green"></div>
+          <div class="route-vline"></div>
         </div>
-        <div style="flex:1">
-          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:8px">
-            <div>
-              <label>起始名稱（顯示用）</label>
-              <input type="text" id="start-company" placeholder="例：台中總公司" autocomplete="off" style="font-size:14px;padding:10px 12px">
-            </div>
-            <div style="width:110px">
-              <label>出發時間</label>
-              <input type="time" id="start-time" style="font-size:14px;padding:10px 8px">
-            </div>
+        <div style="flex:1;padding-bottom:8px">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:6px">
+            <div><label>起始名稱</label><input type="text" id="start-company" placeholder="例：台中總公司"></div>
+            <div style="width:105px"><label>出發時間</label><input type="time" id="start-time"></div>
           </div>
           <div>
-            <label style="color:var(--accent2)">📍 起始搜尋地點（Google Maps 用）</label>
-            <input type="text" id="start-search" placeholder="輸入地址或地點名稱搜尋" autocomplete="off" style="font-size:14px;padding:10px 12px;border-color:var(--accent2)">
+            <label style="color:var(--accent2)">📍 搜尋地點（Maps用）</label>
+            <input type="text" id="start-search" placeholder="輸入地址搜尋" autocomplete="off" style="border-color:var(--accent2)">
           </div>
         </div>
       </div>
 
       <!-- 中途站 -->
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:4px">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;padding-top:4px">
-          <div style="width:2px;flex:1;min-height:8px;background:var(--border)"></div>
-          <div style="width:8px;height:8px;border-radius:50%;border:2px solid var(--accent2);background:var(--bg)"></div>
-          <div style="width:2px;flex:1;min-height:8px;background:var(--border)"></div>
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px">
+        <div class="route-dot-col" style="padding-top:0">
+          <div class="route-vline" style="min-height:6px"></div>
+          <div class="dot-blue"></div>
+          <div class="route-vline" style="min-height:6px"></div>
         </div>
         <div style="flex:1">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <span style="font-size:11px;color:var(--text2);font-family:var(--mono)">中途站</span>
             <button onclick="addWaypoint()" style="background:var(--surface2);color:var(--accent2);border:1px solid var(--accent2);border-radius:5px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">＋ 新增</button>
           </div>
-          <div id="waypoints-list" style="display:flex;flex-direction:column;gap:6px"></div>
-          <div id="waypoints-empty" style="font-size:11px;color:var(--text2);font-family:var(--mono);padding:2px 0">（無中途站）</div>
+          <div id="waypoints-list"></div>
+          <div id="waypoints-empty" style="font-size:11px;color:var(--text2);font-family:var(--mono)">（無中途站）</div>
         </div>
       </div>
 
       <!-- 結束 -->
-      <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-          <div style="width:2px;flex:1;min-height:20px;background:var(--border)"></div>
-          <div style="width:10px;height:10px;border-radius:50%;background:var(--danger);border:2px solid var(--danger)"></div>
+      <div class="route-line">
+        <div class="route-dot-col">
+          <div class="route-vline"></div>
+          <div class="dot-red"></div>
         </div>
-        <div style="flex:1">
-          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:8px">
-            <div>
-              <label>抵達名稱（顯示用）</label>
-              <input type="text" id="end-company" placeholder="例：台北客戶" autocomplete="off" style="font-size:14px;padding:10px 12px">
-            </div>
-            <div style="width:110px">
-              <label>抵達時間</label>
-              <input type="time" id="end-time" style="font-size:14px;padding:10px 8px">
-            </div>
+        <div style="flex:1;padding-bottom:4px">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:6px">
+            <div><label>抵達名稱</label><input type="text" id="end-company" placeholder="例：台北客戶"></div>
+            <div style="width:105px"><label>抵達時間</label><input type="time" id="end-time"></div>
           </div>
           <div>
-            <label style="color:var(--accent2)">📍 抵達搜尋地點（Google Maps 用）</label>
-            <input type="text" id="end-search" placeholder="輸入地址或地點名稱搜尋" autocomplete="off" style="font-size:14px;padding:10px 12px;border-color:var(--accent2)">
+            <label style="color:var(--accent2)">📍 搜尋地點（Maps用）</label>
+            <input type="text" id="end-search" placeholder="輸入地址搜尋" autocomplete="off" style="border-color:var(--accent2)">
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 里程輸入方式 -->
     <div class="card">
       <div class="card-title">📏 里程計算</div>
-
-      <!-- 交通工具選擇 -->
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button id="v-car" onclick="setVehicle('car')"
-          style="flex:1;padding:9px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#0f1117;font-size:13px;font-weight:700;cursor:pointer">
-          🚗 汽車
-        </button>
-        <button id="v-moto" onclick="setVehicle('moto')"
-          style="flex:1;padding:9px;border-radius:8px;border:2px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer">
-          🛵 機車
-        </button>
+      <div class="vtoggle">
+        <button class="vbtn active" id="v-car" onclick="setVehicle('car')">🚗 汽車</button>
+        <button class="vbtn" id="v-moto" onclick="setVehicle('moto')">🛵 機車</button>
       </div>
-
-      <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:12px" id="vehicle-hint">
-        汽車模式：走高速公路（最快路線）
-      </div>
-
-      <button onclick="calcByMaps()" id="maps-btn"
-        style="width:100%;padding:14px;border-radius:8px;border:1px solid var(--accent2);background:transparent;color:var(--accent2);font-size:14px;font-family:var(--sans);font-weight:700;cursor:pointer">
-        🗺️ 用 Google Maps 計算行車里程
-      </button>
-      <div id="maps-status" style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-top:10px;text-align:center;min-height:16px"></div>
-      <div style="background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+      <div id="vehicle-hint" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:10px">汽車模式：走高速公路</div>
+      <button onclick="calcByMaps()" id="maps-btn" class="btn btn-secondary">🗺️ Google Maps 計算行車里程</button>
+      <div id="maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:8px;text-align:center;min-height:14px"></div>
+      <div class="dist-box">
         <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">里程數 KM</span>
         <div style="display:flex;align-items:baseline;gap:4px">
-          <span style="font-family:var(--mono);font-size:24px;color:var(--accent);font-weight:500" id="dist-show">—</span>
+          <span class="dist-val" id="dist-show">—</span>
           <span style="font-size:12px;color:var(--text2)">km</span>
         </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">💳 費用明細</div>
-      <div class="hint">空白視為 0，不需填的欄位留空即可</div>
-      <div class="cost-grid">
-        <div class="cost-field"><label>🚄 高鐵費用（元）</label><input type="number" id="cost-hsr" placeholder="0" inputmode="decimal" step="1" oninput="calcAll()"></div>
-        <div class="cost-field"><label>🛣️ 回數票/ETC（元）</label><input type="number" id="cost-etc" placeholder="0" inputmode="decimal" step="1" oninput="calcAll()"></div>
-        <div class="cost-field"><label>🅿️ 停車費（元）</label><input type="number" id="cost-park" placeholder="0" inputmode="decimal" step="1" oninput="calcAll()"></div>
-        <div class="cost-field"><label>⛽ 油資單（元）</label><input type="number" id="cost-oil" placeholder="0" inputmode="decimal" step="1" oninput="calcAll()"></div>
-        <div class="cost-field"><label>🚕 計程車費（元）</label><input type="number" id="cost-taxi" placeholder="0" inputmode="decimal" step="1" oninput="calcAll()"></div>
-      </div>
-
-      <!-- 費率隱藏，只用於計算，不顯示在匯出 -->
-      <div class="field" style="display:none">
-        <input type="number" id="rate-input" placeholder="7" inputmode="decimal" step="0.5" oninput="calcAll()">
-      </div>
-
-      <div class="result-box">
-        <div class="result-row"><span class="result-lbl">🚗 油資費用</span><span class="result-num" id="r-mile">— 元</span></div>
-        <div class="result-row"><span class="result-lbl">🚄 高鐵費用</span><span class="result-num" id="r-hsr">— 元</span></div>
-        <div class="result-row"><span class="result-lbl">🛣️ 回數票/ETC</span><span class="result-num" id="r-etc">— 元</span></div>
-        <div class="result-row"><span class="result-lbl">🅿️ 停車費</span><span class="result-num" id="r-park">— 元</span></div>
-        <div class="result-row"><span class="result-lbl">⛽ 油資單</span><span class="result-num" id="r-oil">— 元</span></div>
-        <div class="result-row"><span class="result-lbl">🚕 計程車費</span><span class="result-num" id="r-taxi">— 元</span></div>
-        <div class="result-row total">
-          <span class="result-lbl" style="font-size:14px;color:var(--text);font-weight:700">總　計</span>
-          <div style="display:flex;align-items:baseline;gap:5px">
-            <span class="result-num big" id="r-total">—</span>
-            <span style="font-size:13px;color:var(--text2)">元</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <button class="btn btn-primary" id="save-btn" onclick="addRecord()">✓ 儲存到雲端</button>
+    <button class="btn btn-primary" id="save-btn" onclick="addTrip()">✓ 儲存行程</button>
   </div>
 
+  <!-- ══ 紀錄 ══ -->
   <div class="page" id="page-records">
     <div class="sync-badge"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">已同步</span></div>
-
-    <!-- 動態標題 -->
-    <div style="font-family:var(--mono);font-size:13px;color:var(--text2);margin-bottom:10px;letter-spacing:0.05em">
-      <span id="month-title-label" style="color:var(--accent);font-size:16px;font-weight:500"></span>
-      <span id="month-title-sub"></span>
-    </div>
+    <div id="month-title-label" class="month-title"></div>
 
     <div class="summary">
-      <div class="summary-top">
-        <div class="sum-cell"><div class="sum-val" id="s-count">0</div><div class="sum-lbl">筆紀錄</div></div>
+      <div class="sum-top">
+        <div class="sum-cell"><div class="sum-val" id="s-count">0</div><div class="sum-lbl">筆行程</div></div>
         <div class="sum-cell"><div class="sum-val" id="s-dist">0</div><div class="sum-lbl">總公里</div></div>
-        <div class="sum-cell"><div class="sum-val" style="color:var(--accent2)" id="s-total">0</div><div class="sum-lbl">總費用(元)</div></div>
-      </div>
-      <div class="summary-bottom">
-        <div class="sum-cell"><div class="sum-val sm" id="s-mile">0</div><div class="sum-lbl">油資單</div></div>
-        <div class="sum-cell"><div class="sum-val sm" style="color:var(--hsr)" id="s-hsr">0</div><div class="sum-lbl">高鐵費</div></div>
-        <div class="sum-cell"><div class="sum-val sm" style="color:var(--accent3)" id="s-etc">0</div><div class="sum-lbl">回數票</div></div>
-        <div class="sum-cell"><div class="sum-val sm" style="color:var(--park)" id="s-park">0</div><div class="sum-lbl">停車費</div></div>
+        <div class="sum-cell"><div class="sum-val blue" id="s-total">0</div><div class="sum-lbl">總費用(元)</div></div>
       </div>
     </div>
+
     <div class="export-row">
       <button class="btn btn-export" onclick="doExport('excel')">↓ Excel</button>
       <button class="btn btn-export" onclick="doExport('csv')">↓ CSV</button>
-      <button class="btn btn-export" onclick="doExport('pdf')">↓ 列印/PDF</button>
+      <button class="btn btn-export" onclick="doExport('pdf')">↓ PDF</button>
     </div>
+
     <div class="filter-row">
       <input type="month" id="filter-month" onchange="renderAll()">
-      <button class="btn btn-outline" style="width:auto;padding:9px 14px;white-space:nowrap"
+      <button class="btn" style="width:auto;padding:9px 14px;background:transparent;border:1px solid var(--border);color:var(--text2);font-size:13px"
         onclick="document.getElementById('filter-month').value='';renderAll()">全部</button>
     </div>
     <div id="records-list"></div>
   </div>
 
+  <!-- ══ 費用明細 ══ -->
+  <div class="page" id="page-expenses">
+    <div class="card">
+      <div class="card-title">💳 選擇行程</div>
+      <div class="field">
+        <label>綁定到哪一筆行程</label>
+        <select id="exp-trip-select">
+          <option value="">— 請選擇行程 —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card" id="exp-form-card" style="display:none">
+      <div class="card-title">費用項目</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="exp-item" style="border:none;padding:0">
+          <span class="exp-icon">🚄</span>
+          <span class="exp-label">高鐵費用</span>
+          <input type="number" id="exp-hsr" placeholder="0" inputmode="decimal" style="width:120px;text-align:right">
+        </div>
+        <div class="exp-item" style="border:none;padding:0">
+          <span class="exp-icon">🛣️</span>
+          <span class="exp-label">回數票/ETC</span>
+          <input type="number" id="exp-etc" placeholder="0" inputmode="decimal" style="width:120px;text-align:right">
+        </div>
+        <div class="exp-item" style="border:none;padding:0">
+          <span class="exp-icon">🅿️</span>
+          <span class="exp-label">停車費</span>
+          <input type="number" id="exp-park" placeholder="0" inputmode="decimal" style="width:120px;text-align:right">
+        </div>
+        <div class="exp-item" style="border:none;padding:0">
+          <span class="exp-icon">⛽</span>
+          <span class="exp-label">油資單</span>
+          <input type="number" id="exp-oil" placeholder="0" inputmode="decimal" style="width:120px;text-align:right">
+        </div>
+        <div class="exp-item" style="border:none;padding:0">
+          <span class="exp-icon">🚕</span>
+          <span class="exp-label">計程車費</span>
+          <input type="number" id="exp-taxi" placeholder="0" inputmode="decimal" style="width:120px;text-align:right">
+        </div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">小計</span>
+        <span style="font-family:var(--mono);font-size:18px;color:var(--accent);font-weight:500" id="exp-total-preview">NT$ 0</span>
+      </div>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="saveExpenses()">✓ 儲存費用</button>
+    </div>
+
+    <!-- 已儲存的費用明細 -->
+    <div id="exp-saved-card" style="display:none">
+      <div class="card">
+        <div class="card-title">已儲存的費用</div>
+        <div id="exp-saved-list"></div>
+        <button class="btn btn-secondary" style="margin-top:12px" onclick="editExpenses()">✏️ 修改費用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 設定 ══ -->
   <div class="page" id="page-settings">
     <div class="card">
-      <div class="card-title">預設設定</div>
+      <div class="card-title">個人設定</div>
       <div class="setting-row">
-        <div><div class="setting-lbl">姓名</div><div class="setting-sub">顯示於 PDF 報表標題</div></div>
-        <input type="text" id="user-name" placeholder="例：王小明" style="width:120px;text-align:right;font-size:15px;padding:8px 12px" onchange="saveSettingsLocal()">
+        <div><div class="setting-lbl">姓名</div><div class="setting-sub">PDF 報表標題用</div></div>
+        <input type="text" id="user-name" placeholder="例：王小明" onchange="saveSettings()">
       </div>
       <div class="setting-row">
-        <div><div class="setting-lbl">預設費率</div><div class="setting-sub">每公里費用（元）</div></div>
-        <input type="number" id="default-rate" placeholder="7" inputmode="decimal" step="0.5" onchange="saveSettingsLocal()">
+        <div><div class="setting-lbl">費率（元/km）</div><div class="setting-sub">計算里程費用用</div></div>
+        <input type="number" id="default-rate" placeholder="7" inputmode="decimal" step="0.5" onchange="saveSettings()">
       </div>
       <div class="setting-row">
         <div><div class="setting-lbl">貨幣符號</div><div class="setting-sub">顯示用</div></div>
-        <input type="text" id="currency-sym" placeholder="NT$" style="width:80px;text-align:center" onchange="saveSettingsLocal()">
+        <input type="text" id="currency-sym" placeholder="NT$" style="width:80px;text-align:center" onchange="saveSettings()">
       </div>
     </div>
-    <div style="text-align:center;margin-top:30px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.8">
-      BUSINESS TRIP TRACKER v4.0<br>GitHub Pages + Google Sheets API
+    <div style="text-align:center;margin-top:24px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2">
+      BUSINESS TRIP TRACKER v5.0<br>GitHub Pages + Google Sheets API
     </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<!-- Bottom Tabs -->
+<div class="bottom-tabs" id="bottom-tabs" style="display:none">
+  <button class="btab active" onclick="switchTab('add')" id="tab-add">
+    <span class="icon">＋</span><span>新增</span>
+  </button>
+  <button class="btab" onclick="switchTab('records')" id="tab-records">
+    <span class="icon">📋</span><span>紀錄</span>
+  </button>
+  <button class="btab" onclick="switchTab('expenses')" id="tab-expenses">
+    <span class="icon">💳</span><span>費用</span>
+  </button>
+  <button class="btab" onclick="switchTab('settings')" id="tab-settings">
+    <span class="icon">⚙️</span><span>設定</span>
+  </button>
+</div>
+
 <script>
-// ══ 設定 ══
-const CLIENT_ID  = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
-const SHEET_ID    = '1prHsbgvRLq_XcDaRHxKHzRYMi1eQ0ktwQrtJtliRIGY';
-const SHEETS_API  = 'https://sheets.googleapis.com/v4/spreadsheets';
-const DATA_SHEET     = '出差紀錄'; // 所有人共用一個分頁，用 email 區分
-const SETTINGS_SHEET = '個人設定';  // 每人的費率/貨幣設定
+// ══ 常數 ══
+const CLIENT_ID    = '601551177948-5t463rslm85hjcpchoj53hjcno7cnsp4.apps.googleusercontent.com';
+const SHEET_ID     = '1prHsbgvRLq_XcDaRHxKHzRYMi1eQ0ktwQrtJtliRIGY';
+const SHEETS_API   = 'https://sheets.googleapis.com/v4/spreadsheets';
+const TRIP_SHEET   = '出差紀錄';
+const EXP_SHEET    = '費用明細';
+const SET_SHEET    = '個人設定';
+
+const TRIP_HEADERS = ['ID','Email','日期','起始名稱','出發時間','中途站','抵達名稱','抵達時間','里程KM','客戶區域','建立時間'];
+const EXP_HEADERS  = ['ID','TripID','Email','日期','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用','建立時間'];
+const SET_HEADERS  = ['Email','姓名','費率','貨幣'];
 
 // ══ 狀態 ══
-let records     = [];
+let trips       = [];  // 行程紀錄
+let expenses    = {};  // { tripId: { hsr, etc, park, oil, taxi, total } }
 let settings    = { name:'', rate:'', currency:'NT$' };
 let userEmail   = '';
 let accessToken = '';
-
-function onLoginFail(err) {
-  document.getElementById('login-btn').disabled = false;
-  const msg = typeof err==='object'?(err.message||JSON.stringify(err)):err;
-  document.getElementById('login-status').textContent = '⚠ '+msg;
-}
-
-async function enterApp(email) {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  const short = email.split('@')[0];
-  document.getElementById('user-initial').textContent     = short[0].toUpperCase();
-  document.getElementById('user-email-short').textContent = short.length>14?short.substring(0,14)+'…':short;
-  document.getElementById('user-badge').title             = `登入中：${email}\n點擊可切換帳號`;
-  document.getElementById('trip-date').value = new Date().toISOString().split('T')[0];
-
-  // 確保分頁存在
-  await ensureUserSheet();
-
-  // 從 Sheets 載入個人設定（含費率）
-  await loadSettings();
-  await loadRecords();
-}
-
-async function saveSettingsLocal() {
-  const name     = document.getElementById('user-name').value.trim();
-  const rate     = document.getElementById('default-rate').value;
-  const currency = document.getElementById('currency-sym').value || 'NT$';
-  settings.name  = name;
-  settings.rate     = rate;
-  settings.currency = currency;
-  document.getElementById('rate-input').value = rate;
-
-  // 存到 Google Sheets 設定分頁
-  try {
-    // 找到該 email 的列，有則更新，沒有則新增
-    const data = await sheetsGet(`${SETTINGS_SHEET}!A:C`);
-    const rows = data.values || [];
-    let rowIdx  = -1;
-    for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] === userEmail) { rowIdx = i + 1; break; }
-    }
-
-    if (rowIdx > 0) {
-      // 更新已有的列
-      const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeRange(SETTINGS_SHEET + '!A' + rowIdx + ':C' + rowIdx)}?valueInputOption=USER_ENTERED`;
-      await fetch(url, {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: [[userEmail, name, rate, currency]] })
-      });
-    } else {
-      // 新增
-      await sheetsAppend(`${SETTINGS_SHEET}!A:D`, [[userEmail, name, rate, currency]]);
-    }
-    toast('✓ 設定已儲存');
-  } catch(e) {
-    toast('設定儲存失敗：' + e.message, true);
-  }
-}
-
-async function loadSettings() {
-  try {
-    const data = await sheetsGet(`${SETTINGS_SHEET}!A:C`);
-    const rows = (data.values || []).slice(1);
-    const row  = rows.find(r => r[0] === userEmail);
-    if (row) {
-      settings.name     = row[1] || '';
-      settings.rate     = row[2] || '';
-      settings.currency = row[3] || 'NT$';
-    } else {
-      settings.name     = '';
-      settings.rate     = '';
-      settings.currency = 'NT$';
-    }
-  } catch(e) {
-    // 分頁不存在時建立
-    try {
-      await sheetsBatchUpdate([{ addSheet: { properties: { title: SETTINGS_SHEET } } }]);
-      await new Promise(r => setTimeout(r, 500));
-      await sheetsAppend(`${SETTINGS_SHEET}!A1`, [['Email','姓名','費率(元/km)','貨幣符號']]);
-    } catch(e2) {}
-    settings.rate     = '';
-    settings.currency = 'NT$';
-  }
-  document.getElementById('rate-input').value   = settings.rate;
-  document.getElementById('default-rate').value = settings.rate;
-  document.getElementById('currency-sym').value  = settings.currency;
-  const nameEl = document.getElementById('user-name');
-  if (nameEl) nameEl.value = settings.name || '';
-}
-
-function confirmLogout() {
-  if (!confirm(`目前登入：${userEmail}\n\n確定登出並切換帳號？`)) return;
-  google.accounts.id.disableAutoSelect();
-  records=[]; userEmail=''; accessToken='';
-  document.getElementById('app').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('login-status').textContent='已登出，請重新選擇帳號';
-}
-
-// ══ Google Sheets API 呼叫 ══
-// 正確編碼 range，只編碼分頁名稱，保留 ! 和欄位標記
-function encodeRange(range) {
-  const idx = range.indexOf('!');
-  if (idx === -1) return encodeURIComponent(range);
-  const sheet = range.substring(0, idx);
-  const cells = range.substring(idx + 1);
-  return encodeURIComponent(sheet) + '!' + cells;
-}
-async function sheetsGet(range) {
-  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeRange(range)}`;
-  const r   = await fetch(url, { headers:{ Authorization:'Bearer '+accessToken }});
-  if (!r.ok) throw new Error('讀取失敗 '+r.status);
-  return r.json();
-}
-
-async function sheetsAppend(range, values) {
-  const url = `${SHEETS_API}/${SHEET_ID}/values/${encodeRange(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-  const r   = await fetch(url, {
-    method: 'POST',
-    headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
-    body: JSON.stringify({ values })
-  });
-  if (!r.ok) throw new Error('寫入失敗 '+r.status);
-  return r.json();
-}
-
-async function sheetsBatchUpdate(requests) {
-  const url = `${SHEETS_API}/${SHEET_ID}:batchUpdate`;
-  const r   = await fetch(url, {
-    method: 'POST',
-    headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
-    body: JSON.stringify({ requests })
-  });
-  if (!r.ok) throw new Error('更新失敗 '+r.status);
-  return r.json();
-}
-
-async function getSheetsList() {
-  const url = `${SHEETS_API}/${SHEET_ID}?fields=sheets.properties`;
-  const r   = await fetch(url, { headers:{ Authorization:'Bearer '+accessToken }});
-  if (!r.ok) throw new Error('無法取得分頁清單');
-  const data = await r.json();
-  return data.sheets.map(s => s.properties.title);
-}
-
-// ── 確保使用者分頁存在，不存在則建立 ──
-const HEADERS = ['ID','Email','日期','起始公司','起始時間',
-  '中途站','抵達地點','結束時間','里程數KM','客戶區域',
-  '回數票/ETC','高鐵費用','停車費','油資單','計程車費','總費用','建立時間'];
-
-async function ensureUserSheet() {
-  try {
-    // 1. 確認分頁存在
-    const sheets = await getSheetsList();
-    if (!sheets.includes(DATA_SHEET)) {
-      toast('初始化資料分頁中...');
-      await sheetsBatchUpdate([{ addSheet: { properties: { title: DATA_SHEET } } }]);
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    // 2. 檢查第一列是否有標題
-    let firstRow = [];
-    try {
-      const data = await sheetsGet(`${DATA_SHEET}!A1:Q1`);
-      firstRow = (data.values && data.values[0]) || [];
-    } catch(e) { firstRow = []; }
-
-    // 3. 沒有標題或標題不正確 → 寫入標題
-    if (!firstRow.length || firstRow[0] !== 'ID') {
-      await sheetsAppend(`${DATA_SHEET}!A1`, [HEADERS]);
-      toast('✓ 標題列已建立');
-    }
-    return true;
-  } catch(e) {
-    console.log('ensureUserSheet:', e.message);
-    return true;
-  }
-}
-
-// ══ 讀取紀錄（只讀自己的）══
-async function loadRecords() {
-  setSyncing(true);
-  try {
-    const data = await sheetsGet(`${DATA_SHEET}!A:R`);
-    const rows = data.values || [];
-    if (rows.length <= 1) { records = []; }
-    else {
-      // A=ID, B=Email, C=日期, D=起始公司, E=起始時間
-      // F=中途站, G=抵達地點, H=結束時間, I=里程數, J=客戶區域
-      // K=回數票, L=高鐵, M=停車, N=油資單, O=計程車費, P=總費用, Q=建立時間
-      records = rows.slice(1)
-        .filter(r => r[1] === userEmail)
-        .map(r => ({
-          id:           r[0]  || '',
-          date:         r[2]  || '',
-          startCompany: r[3]  || '',
-          startTime:    r[4]  || '',
-          waypoints:    r[5]  || '',
-          endCompany:   r[6]  || '',
-          endTime:      r[7]  || '',
-          dist:         +r[8] || 0,
-          area:         r[9]  || '',
-          etc:          +r[10]|| 0,
-          hsr:          +r[11]|| 0,
-          park:         +r[12]|| 0,
-          oil:          +r[13]|| 0,
-          taxi:         +r[14]|| 0,
-          total:        +r[15]|| 0,
-        })).filter(r => r.id).reverse();
-    }
-    renderAll();
-  } catch(e) {
-    if (e.message.includes('400')) { records = []; renderAll(); }
-    else toast('讀取失敗：'+e.message, true);
-  }
-  setSyncing(false);
-}
-
-// ══ 新增紀錄 ══
-async function addRecord() {
-  const date         = document.getElementById('trip-date').value;
-  const area         = document.getElementById('trip-area').value.trim();
-  const startCompany = document.getElementById('start-company').value.trim();
-  const startTime    = document.getElementById('start-time').value;
-  const endCompany   = document.getElementById('end-company').value.trim();
-  const endTime      = document.getElementById('end-time').value;
-  if (!date)         { toast('請選擇日期',true); return; }
-  if (!startCompany) { toast('請填寫起始地點',true); return; }
-
-  const rate = g('rate-input');
-  const dist = mapsDist;
-  const mile = +(dist * rate).toFixed(0);
-  const hsr=g('cost-hsr'), etc=g('cost-etc'), park=g('cost-park'), oil=g('cost-oil'), taxi=g('cost-taxi');
-  const total = mile + hsr + etc + park + oil + taxi;
-
-  // 里程或費用至少填一項
-  const hasDist = dist > 0;
-  const hasFees = hsr+etc+park+oil+taxi > 0;
-  if (!hasDist && !hasFees) {
-    toast('請計算里程，或至少填寫一項費用',true); return;
-  }
-
-  // 沒有里程時跳出提醒，讓使用者確認
-  if (!hasDist) {
-    if (!confirm('⚠️ 此筆紀錄沒有里程數\n\n確定要儲存嗎？')) return;
-  }
-
-  const id  = Date.now().toString();
-  const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei'});
-
-  const btn=document.getElementById('save-btn');
-  btn.disabled=true; btn.textContent='儲存中...';
-
-  try {
-    const waypoints = getWaypoints().join(' → ');
-    await sheetsAppend(`${DATA_SHEET}!A:Q`, [[
-      id, userEmail, date, startCompany, startTime,
-      waypoints, endCompany, endTime, dist, area,
-      etc, hsr, park, oil, taxi, total, now
-    ]]);
-    records.unshift({id,date,startCompany,startTime,waypoints,endCompany,endTime,dist,area,etc,hsr,park,oil,taxi,total});
-    ['trip-area','start-company','start-time','start-search','end-company','end-time','end-search',
-     'cost-hsr','cost-etc','cost-park','cost-oil','cost-taxi']
-      .forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-    clearWaypoints();
-    mapsDist = 0;
-    const distEl = document.getElementById('dist-show');
-    if (distEl) distEl.textContent = '—';
-    document.getElementById('maps-status').textContent = '';
-    document.getElementById('dist-show').value='';
-    ['r-mile','r-hsr','r-etc','r-park','r-oil'].forEach(i=>st(i,'— 元'));
-    st('r-total','—');
-    toast('✓ 已儲存到 Google Sheets');
-    updateSummary();
-  } catch(e) { toast('儲存失敗：'+e.message,true); }
-  btn.disabled=false; btn.textContent='✓ 儲存到雲端';
-}
-
-// ══ 刪除紀錄 ══
-async function deleteRecord(id) {
-  if (!confirm('確定要刪除這筆紀錄？')) return;
-  try {
-    // 找到該行的行號
-    const data = await sheetsGet(`${DATA_SHEET}!A:A`);
-    const rows = data.values || [];
-    let rowIndex = -1;
-    for (let i=1; i<rows.length; i++) {
-      if (String(rows[i][0]) === String(id)) { rowIndex = i; break; }
-    }
-    if (rowIndex === -1) { toast('找不到紀錄',true); return; }
-
-    // 取得 sheetId
-    const sheets = await fetch(`${SHEETS_API}/${SHEET_ID}?fields=sheets.properties`,
-      {headers:{Authorization:'Bearer '+accessToken}}).then(r=>r.json());
-    const sheet  = sheets.sheets.find(s=>s.properties.title===DATA_SHEET);
-    if (!sheet) { toast('找不到分頁',true); return; }
-    const sheetId = sheet.properties.sheetId;
-
-    await sheetsBatchUpdate([{
-      deleteDimension:{
-        range:{ sheetId, dimension:'ROWS', startIndex:rowIndex, endIndex:rowIndex+1 }
-      }
-    }]);
-    records = records.filter(r=>r.id!==id);
-    renderAll(); toast('紀錄已刪除');
-  } catch(e) { toast('刪除失敗：'+e.message,true); }
-}
-
-// ══ Google Maps 整合 ══
-let mapsReady    = false;
-let acStart      = null;
-let acEnd        = null;
-
-// Maps API 載入完成後初始化
-function initMaps() {
-  mapsReady = true;
-  // Autocomplete 綁到搜尋欄位（不是顯示名稱欄位）
-  setupPlaceInput('start-search');
-  setupPlaceInput('end-search');
-}
-window.initMaps = initMaps;
-
-document.addEventListener('DOMContentLoaded', () => {
-  const checkMaps = setInterval(() => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      clearInterval(checkMaps); initMaps();
-    }
-  }, 300);
-});
-
-// 用隱藏 input 接受 Autocomplete，顯示 input 只顯示名稱
-function setupPlaceInput(inputId) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-
-  const svc = new google.maps.places.AutocompleteService();
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;z-index:99999;background:#1a1d27;border:1px solid #3ec8f0;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);max-height:220px;overflow-y:auto;display:none;';
-  document.body.appendChild(container);
-
-  function position() {
-    const r = input.getBoundingClientRect();
-    container.style.left  = r.left + 'px';
-    container.style.top   = (r.bottom + 4) + 'px';
-    container.style.width = r.width + 'px';
-  }
-
-  function showSuggestions(val) {
-    if (!val || val.length < 1) { container.style.display='none'; return; }
-    position();
-    svc.getPlacePredictions(
-      { input: val, componentRestrictions:{ country:'tw' }, language:'zh-TW' },
-      (preds, status) => {
-        container.innerHTML = '';
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !preds) {
-          container.style.display = 'none'; return;
-        }
-        container.style.display = 'block';
-        preds.slice(0,6).forEach(pred => {
-          const main = pred.structured_formatting?.main_text || pred.description;
-          const sub  = pred.structured_formatting?.secondary_text || '';
-          const item = document.createElement('div');
-          item.style.cssText = 'padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
-          item.innerHTML = `<div style="font-weight:600">${main}</div>${sub?`<div style="font-size:11px;color:#8b91a8;margin-top:2px">${sub}</div>`:''}`;
-          const select = (e) => {
-            e.preventDefault();
-            // 填入主要名稱（不是完整地址）
-            input.value = main;
-            container.style.display = 'none';
-          };
-          item.addEventListener('mousedown', select);
-          item.addEventListener('touchstart', select, { passive:false });
-          item.addEventListener('mouseover', () => item.style.background='#22263a');
-          item.addEventListener('mouseout',  () => item.style.background='');
-          container.appendChild(item);
-        });
-      }
-    );
-  }
-
-  input.addEventListener('input', () => showSuggestions(input.value.trim()));
-  input.addEventListener('focus', () => { if (input.value.trim()) showSuggestions(input.value.trim()); });
-  input.addEventListener('blur',  () => setTimeout(() => { container.style.display='none'; }, 250));
-  window.addEventListener('scroll', () => { if (container.style.display!=='none') position(); }, true);
-}
-
-function addWaypointAutocomplete(input) {
-  if (!mapsReady) return;
-  setupPlaceInput(null, input); // 直接傳 input element
-}
-
-function setupPlaceInputEl(input) {
-  if (!input || !mapsReady) return;
-  const svc = new google.maps.places.AutocompleteService();
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;z-index:99999;background:#1a1d27;border:1px solid #3ec8f0;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);max-height:200px;overflow-y:auto;display:none;';
-  document.body.appendChild(container);
-
-  function position() {
-    const r = input.getBoundingClientRect();
-    container.style.left  = r.left + 'px';
-    container.style.top   = (r.bottom + 4) + 'px';
-    container.style.width = r.width + 'px';
-  }
-
-  input.addEventListener('input', () => {
-    const val = input.value.trim();
-    if (!val) { container.style.display='none'; return; }
-    position();
-    svc.getPlacePredictions(
-      { input: val, componentRestrictions:{ country:'tw' }, language:'zh-TW' },
-      (preds, status) => {
-        container.innerHTML = '';
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !preds) {
-          container.style.display='none'; return;
-        }
-        container.style.display = 'block';
-        preds.slice(0,5).forEach(pred => {
-          const main = pred.structured_formatting?.main_text || pred.description;
-          const item = document.createElement('div');
-          item.style.cssText = 'padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
-          item.textContent = main;
-          const select = (e) => { e.preventDefault(); input.value = main; container.style.display='none'; };
-          item.addEventListener('mousedown', select);
-          item.addEventListener('touchstart', select, { passive:false });
-          item.addEventListener('mouseover', () => item.style.background='#22263a');
-          item.addEventListener('mouseout',  () => item.style.background='');
-          container.appendChild(item);
-        });
-      }
-    );
-  });
-  input.addEventListener('blur', () => setTimeout(() => { container.style.display='none'; }, 250));
-}
-
-// ── 用 Google Maps 計算里程（支援中文地址直接搜尋）──
-async function calcByMaps() {
-  const startVal = document.getElementById('start-search').value.trim() || document.getElementById('start-company').value.trim();
-  const endVal   = document.getElementById('end-search').value.trim() || document.getElementById('end-company').value.trim();
-  const status   = document.getElementById('maps-status');
-  const btn      = document.getElementById('maps-btn');
-
-  if (!startVal) { status.textContent = '⚠ 請填寫起始搜尋地點'; return; }
-  if (!endVal)   { status.textContent = '⚠ 請填寫抵達搜尋地點'; return; }
-  if (!mapsReady){ status.textContent = '⚠ Google Maps 尚未載入，請稍後再試'; return; }
-
-  btn.disabled = true;
-  status.textContent = '🗺️ 計算中...';
-  status.style.color = 'var(--accent3)';
-
-  const waypts = getWaypointSearchValues();
-
-  try {
-    const directionsService = new google.maps.DirectionsService();
-    const routeOptions = {
-      origin:      startVal + ' 台灣',
-      destination: endVal   + ' 台灣',
-      waypoints:   waypts.map(w => ({ location: w + ' 台灣', stopover: true })),
-      travelMode:  google.maps.TravelMode.DRIVING,
-      avoidHighways: vehicleMode === 'moto', // 機車避開高速公路，走省道
-      region:      'TW',
-      language:    'zh-TW',
-    };
-
-    const result = await new Promise((resolve, reject) => {
-      directionsService.route(routeOptions, (res, routeStatus) => {
-        if (routeStatus === 'OK') resolve(res);
-        else reject(new Error(routeStatus));
-      });
-    });
-
-    let totalMeters = 0;
-    result.routes[0].legs.forEach(leg => { totalMeters += leg.distance.value; });
-    const totalKm = totalMeters / 1000;
-
-    // 儲存距離並更新顯示
-    mapsDist = totalKm;
-    const distEl = document.getElementById('dist-show');
-    if (distEl) distEl.textContent = totalKm.toFixed(1);
-    calcAll();
-
-    const vLabel  = vehicleMode === 'car' ? '🚗 汽車' : '🛵 機車';
-    const wayptMsg = waypts.length > 0 ? `，含 ${waypts.length} 個中途站` : '';
-    status.textContent = `✓ ${vLabel} ${totalKm.toFixed(1)} km${wayptMsg}`;
-    status.style.color = 'var(--accent)';
-
-  } catch(e) {
-    let msg = e.message;
-    if (msg === 'NOT_FOUND')       msg = '找不到地點，請輸入更完整的地址（例如：台中火車站）';
-    if (msg === 'ZERO_RESULTS')    msg = '找不到路線，請確認起訖地點';
-    if (msg === 'REQUEST_DENIED')  msg = 'API 權限不足，請確認 Directions API 已啟用';
-    status.textContent = '⚠ ' + msg;
-    status.style.color = 'var(--danger)';
-  }
-  btn.disabled = false;
-}
+let mapsDist    = 0;
+let vehicleMode = 'car';
+let mapsReady   = false;
 let waypointCount = 0;
-let mapsDist      = 0;
-let vehicleMode   = 'car'; // 'car' | 'moto'
 
-function setVehicle(mode) {
-  vehicleMode = mode;
-  const carBtn  = document.getElementById('v-car');
-  const motoBtn = document.getElementById('v-moto');
-  const hint    = document.getElementById('vehicle-hint');
-  if (mode === 'car') {
-    carBtn.style.cssText  += ';border-color:var(--accent);background:var(--accent);color:#0f1117';
-    motoBtn.style.cssText += ';border-color:var(--border);background:transparent;color:var(--text2)';
-    hint.textContent = '汽車模式：走高速公路（最快路線）';
-  } else {
-    motoBtn.style.cssText += ';border-color:var(--accent);background:var(--accent);color:#0f1117';
-    carBtn.style.cssText  += ';border-color:var(--border);background:transparent;color:var(--text2)';
-    hint.textContent = '機車模式：避開高速公路，走省道／一般道路';
-  }
-  // 若已有計算結果，重新計算
-  if (mapsDist > 0) calcByMaps();
-}
-
-function addWaypoint() {
-  waypointCount++;
-  const list  = document.getElementById('waypoints-list');
-  const empty = document.getElementById('waypoints-empty');
-  empty.style.display = 'none';
-
-  const div = document.createElement('div');
-  div.className = 'waypoint-item';
-  div.id = `wp-${waypointCount}`;
-  div.style.cssText = 'flex-direction:column;gap:6px;align-items:stretch;padding:10px;';
-  div.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="waypoint-num">站 ${list.children.length + 1}</span>
-      <input type="text" placeholder="中途地點名稱（顯示用）" style="flex:1;background:transparent;border:none;border-bottom:1px solid #2e3352;padding:4px 0;font-size:14px;color:#e8ecf4;">
-      <button class="waypoint-del" onclick="removeWaypoint('wp-${waypointCount}')">×</button>
-    </div>
-    <div>
-      <label style="color:var(--accent2);font-size:10px;font-family:var(--mono)">📍 搜尋地點（Google Maps 用）</label>
-      <input type="text" class="wp-search" placeholder="輸入地址搜尋" style="width:100%;background:var(--bg);border:1px solid #3ec8f0;border-radius:6px;color:#e8ecf4;font-size:13px;padding:8px 10px;outline:none;">
-    </div>
-  `;
-  list.appendChild(div);
-
-  // 第一個 input 是顯示名稱，第二個是搜尋
-  const nameInput   = div.querySelectorAll('input')[0];
-  const searchInput = div.querySelectorAll('input')[1];
-  nameInput.focus();
-  setupPlaceInputEl(searchInput);
-  updateWaypointNumbers();
-}
-
-function removeWaypoint(id) {
-  const el = document.getElementById(id);
-  if (el) el.remove();
-  updateWaypointNumbers();
-  const list = document.getElementById('waypoints-list');
-  document.getElementById('waypoints-empty').style.display =
-    list.children.length === 0 ? 'block' : 'none';
-}
-
-function updateWaypointNumbers() {
-  const items = document.querySelectorAll('.waypoint-item');
-  items.forEach((el, i) => {
-    el.querySelector('.waypoint-num').textContent = `站 ${i+1}`;
-  });
-}
-
-function getWaypoints() {
-  // 回傳顯示名稱（用於儲存）
-  return Array.from(document.querySelectorAll('.waypoint-item'))
-    .map(el => el.querySelectorAll('input')[0]?.value.trim())
-    .filter(Boolean);
-}
-
-function getWaypointSearchValues() {
-  // 回傳搜尋地點（用於 Google Maps 計算）
-  return Array.from(document.querySelectorAll('.waypoint-item'))
-    .map(el => {
-      const search = el.querySelectorAll('input')[1]?.value.trim();
-      const name   = el.querySelectorAll('input')[0]?.value.trim();
-      return search || name; // 搜尋地點優先，沒有則用名稱
-    })
-    .filter(Boolean);
-}
-
-function clearWaypoints() {
-  document.getElementById('waypoints-list').innerHTML = '';
-  document.getElementById('waypoints-empty').style.display = 'block';
-  waypointCount = 0;
-}
-const g  = id => { const el=document.getElementById(id); return el ? parseFloat(el.value)||0 : 0; };
-const st = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-const fmtN = v => v>0?v.toLocaleString()+' 元':'— 元';
-
-function calcAll() {
-  const dist  = mapsDist;
-  const rate  = g('rate-input');
-  const mile  = +(dist * rate).toFixed(0);
-  const hsr=g('cost-hsr'),etc=g('cost-etc'),park=g('cost-park'),oil=g('cost-oil'),taxi=g('cost-taxi');
-  const total = mile + hsr + etc + park + oil + taxi;
-  document.getElementById('dist-show').value=dist>0?dist.toFixed(1)+' km':'';
-  st('r-mile',fmtN(mile));st('r-hsr',fmtN(hsr));st('r-etc',fmtN(etc));
-  st('r-park',fmtN(park));st('r-oil',fmtN(oil));
-  st('r-total',(dist>0||hsr||etc||park||oil)?total.toLocaleString():'—');
-}
-
-// ══ 渲染 ══
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach((t,i)=>
-    t.classList.toggle('active',['add','records','settings'][i]===tab));
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+tab).classList.add('active');
-  if (tab==='records') {
-    // 預設選當月
-    const fm = document.getElementById('filter-month');
-    if (!fm.value) {
-      fm.value = new Date().toISOString().substring(0,7);
-    }
-    loadRecords();
-  }
-}
-
-function getFiltered() {
-  const m=document.getElementById('filter-month')?.value||'';
-  return m?records.filter(r=>r.date&&r.date.startsWith(m)):records;
-}
-
-function updateMonthTitle() {
-  const m   = document.getElementById('filter-month')?.value || '';
-  const lbl = document.getElementById('month-title-label');
-  const sub = document.getElementById('month-title-sub');
-  if (!lbl) return;
-  if (m) {
-    const [y, mo] = m.split('-');
-    lbl.textContent = `${y} 年 ${parseInt(mo)} 月`;
-    sub.textContent = ' 出差費用紀錄';
-  } else {
-    lbl.textContent = '全部';
-    sub.textContent = ' 出差費用紀錄';
-  }
-}
-
-function renderAll() { updateMonthTitle(); renderRecords(); updateSummary(); }
-
-function renderRecords() {
-  const cur=settings.currency||'NT$', filtered=getFiltered();
-  const list=document.getElementById('records-list');
-  if (!filtered.length){list.innerHTML=`<div class="empty">— 尚無紀錄 —<br>在「新增」頁面建立第一筆</div>`;return;}
-  list.innerHTML=filtered.map(r=>{
-    const fees=[
-      r.hsr >0?`<span class="chip hsr">🚄 高鐵 ${r.hsr.toLocaleString()}</span>`:'',
-      r.etc >0?`<span class="chip etc">🛣️ 回數票 ${r.etc.toLocaleString()}</span>`:'',
-      r.park>0?`<span class="chip park">🅿️ 停車 ${r.park.toLocaleString()}</span>`:'',
-      r.oil >0?`<span class="chip" style="color:#fb923c;border-color:#fb923c">⛽ 油資 ${r.oil.toLocaleString()}</span>`:'',
-      r.taxi>0?`<span class="chip" style="color:#f9c74f;border-color:#f9c74f">🚕 計程車 ${r.taxi.toLocaleString()}</span>`:'',
-    ].filter(Boolean).join('');
-    return `<div class="record-item">
-      <div class="record-top">
-        <div><div class="record-desc">${r.startCompany} → ${r.endCompany}</div>
-          ${r.waypoints?`<div class="record-date" style="margin-top:2px;color:var(--accent2)">📍 ${r.waypoints}</div>`:''}
-          <div class="record-date">${r.date}${r.area?' ／ '+r.area:''}</div>
-          <div class="record-date" style="margin-top:2px">${r.startTime?r.startTime+' 出發':''} ${r.endTime?'→ '+r.endTime+' 抵達':''}</div>
-        </div>
-        <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">刪除</button>
-      </div>
-      <div class="chips">
-        <span class="chip km">🚗 ${r.dist} km</span>
-        <span class="chip grand">${cur} ${r.total.toLocaleString()}</span>
-      </div>
-      ${fees?`<div class="extra-chips">${fees}</div>`:''}
-    </div>`;
-  }).join('');
-}
-
-function updateSummary() {
-  const src=getFiltered(),sum=k=>src.reduce((a,r)=>a+(+r[k]||0),0);
-  st('s-count',src.length);st('s-dist',sum('dist').toFixed(1));
-  st('s-total',sum('total').toLocaleString());
-  st('s-mile',sum('oil').toLocaleString());  // 油資單
-  st('s-hsr',sum('hsr').toLocaleString());
-  st('s-etc',sum('etc').toLocaleString());   // 回數票
-  st('s-park',sum('park').toLocaleString());
-  st('s-taxi',sum('taxi').toLocaleString() || '0');
-}
-
-function setSyncing(on) {
-  const dot=document.getElementById('sync-dot'),lbl=document.getElementById('sync-label');
-  if(on){dot.classList.add('syncing');lbl.textContent='同步中...';}
-  else{dot.classList.remove('syncing');lbl.textContent='已同步';}
-}
-
-// ══ 登入逾時保護 ══
+// ══ 登入 ══
 function startLogin() {
   const btn = document.getElementById('login-btn');
   btn.disabled = true;
   document.getElementById('login-status').textContent = '登入中...';
-
-  // 30秒後如果還沒完成，自動恢復按鈕
-  const loginTimer = setTimeout(() => {
+  const timer = setTimeout(() => {
     btn.disabled = false;
     document.getElementById('login-status').textContent = '登入逾時，請重試';
   }, 30000);
@@ -1090,16 +441,15 @@ function startLogin() {
     scope: 'email profile https://www.googleapis.com/auth/spreadsheets',
     prompt: 'select_account',
     callback: async (resp) => {
-      clearTimeout(loginTimer);
+      clearTimeout(timer);
       btn.disabled = false;
       if (resp.error) {
-        // 使用者關掉視窗或取消
-        document.getElementById('login-status').textContent = resp.error === 'access_denied' ? '已取消登入' : '登入失敗，請重試';
+        document.getElementById('login-status').textContent = resp.error === 'access_denied' ? '已取消' : '登入失敗，請重試';
         return;
       }
       try {
         accessToken = resp.access_token;
-        const info  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',
+        const info = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',
           { headers:{ Authorization:'Bearer '+accessToken }}).then(r=>r.json());
         if (!info.email) { document.getElementById('login-status').textContent = '無法取得帳號，請重試'; return; }
         userEmail = info.email;
@@ -1109,126 +459,724 @@ function startLogin() {
       }
     },
     error_callback: (err) => {
-      // 視窗被關掉時觸發
-      clearTimeout(loginTimer);
+      clearTimeout(timer);
       btn.disabled = false;
       document.getElementById('login-status').textContent = '已取消，請重新點擊登入';
     }
   }).requestAccessToken();
 }
 
-// ══ 匯出 ══
-function setExportLoading(on){
-  document.querySelectorAll('.btn-export').forEach(b=>{b.disabled=on;b.style.opacity=on?'0.5':'';});
+async function enterApp(email) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('bottom-tabs').style.display = 'flex';
+  const short = email.split('@')[0];
+  document.getElementById('user-initial').textContent     = short[0].toUpperCase();
+  document.getElementById('user-email-short').textContent = short.length>14?short.substring(0,14)+'…':short;
+  document.getElementById('trip-date').value = new Date().toISOString().split('T')[0];
+  await ensureSheets();
+  await loadSettings();
+  await loadAll();
 }
 
-function doExport(type) {
-  const m   = document.getElementById('filter-month')?.value||'';
+function confirmLogout() {
+  if (!confirm(`目前登入：${userEmail}\n\n確定登出？`)) return;
+  google.accounts.id.disableAutoSelect();
+  trips=[]; expenses={}; userEmail=''; accessToken='';
+  document.getElementById('app').style.display='none';
+  document.getElementById('bottom-tabs').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-status').textContent='已登出';
+}
+
+// ══ Sheets API ══
+function encodeRange(r) {
+  const i = r.indexOf('!');
+  if (i===-1) return encodeURIComponent(r);
+  return encodeURIComponent(r.substring(0,i)) + '!' + r.substring(i+1);
+}
+async function sGet(range) {
+  const r = await fetch(`${SHEETS_API}/${SHEET_ID}/values/${encodeRange(range)}`,
+    { headers:{ Authorization:'Bearer '+accessToken }});
+  if (!r.ok) throw new Error('讀取失敗 '+r.status);
+  return r.json();
+}
+async function sAppend(range, values) {
+  const r = await fetch(`${SHEETS_API}/${SHEET_ID}/values/${encodeRange(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
+      body: JSON.stringify({ values }) });
+  if (!r.ok) throw new Error('寫入失敗 '+r.status);
+  return r.json();
+}
+async function sBatch(requests) {
+  const r = await fetch(`${SHEETS_API}/${SHEET_ID}:batchUpdate`,
+    { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
+      body: JSON.stringify({ requests }) });
+  if (!r.ok) throw new Error('更新失敗 '+r.status);
+  return r.json();
+}
+async function sGetSheets() {
+  const r = await fetch(`${SHEETS_API}/${SHEET_ID}?fields=sheets.properties`,
+    { headers:{ Authorization:'Bearer '+accessToken }});
+  if (!r.ok) throw new Error('無法取得分頁');
+  return (await r.json()).sheets.map(s=>s.properties.title);
+}
+async function sUpdate(range, values) {
+  const r = await fetch(`${SHEETS_API}/${SHEET_ID}/values/${encodeRange(range)}?valueInputOption=USER_ENTERED`,
+    { method:'PUT', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' },
+      body: JSON.stringify({ values }) });
+  if (!r.ok) throw new Error('更新失敗 '+r.status);
+  return r.json();
+}
+
+// ══ 初始化分頁 ══
+async function ensureSheets() {
+  try {
+    const sheets = await sGetSheets();
+    const toCreate = [];
+    if (!sheets.includes(TRIP_SHEET)) toCreate.push(TRIP_SHEET);
+    if (!sheets.includes(EXP_SHEET))  toCreate.push(EXP_SHEET);
+    if (!sheets.includes(SET_SHEET))  toCreate.push(SET_SHEET);
+    if (toCreate.length) {
+      await sBatch(toCreate.map(t => ({ addSheet:{ properties:{ title:t } } })));
+      await new Promise(r=>setTimeout(r,800));
+    }
+    // 確認標題列
+    for (const [sheet, headers] of [[TRIP_SHEET, TRIP_HEADERS],[EXP_SHEET, EXP_HEADERS],[SET_SHEET, SET_HEADERS]]) {
+      try {
+        const d = await sGet(`${sheet}!A1:Z1`);
+        const row = (d.values&&d.values[0]) || [];
+        if (!row.length || row[0] !== headers[0]) await sAppend(`${sheet}!A1`, [headers]);
+      } catch(e) { await sAppend(`${sheet}!A1`, [headers]); }
+    }
+  } catch(e) { console.log('ensureSheets:', e.message); }
+}
+
+// ══ 設定 ══
+async function loadSettings() {
+  try {
+    const d = await sGet(`${SET_SHEET}!A:D`);
+    const rows = (d.values||[]).slice(1);
+    const row  = rows.find(r=>r[0]===userEmail);
+    settings.name     = row?.[1] || '';
+    settings.rate     = row?.[2] || '';
+    settings.currency = row?.[3] || 'NT$';
+  } catch(e) { }
+  document.getElementById('user-name').value    = settings.name;
+  document.getElementById('default-rate').value = settings.rate;
+  document.getElementById('currency-sym').value  = settings.currency;
+}
+
+async function saveSettings() {
+  settings.name     = document.getElementById('user-name').value.trim();
+  settings.rate     = document.getElementById('default-rate').value;
+  settings.currency = document.getElementById('currency-sym').value || 'NT$';
+  try {
+    const d = await sGet(`${SET_SHEET}!A:A`);
+    const rows = (d.values||[]);
+    let rowIdx = -1;
+    for (let i=1;i<rows.length;i++) { if(rows[i][0]===userEmail){rowIdx=i+1;break;} }
+    const vals = [[userEmail, settings.name, settings.rate, settings.currency]];
+    if (rowIdx>0) await sUpdate(`${SET_SHEET}!A${rowIdx}:D${rowIdx}`, vals);
+    else await sAppend(`${SET_SHEET}!A:D`, vals);
+    toast('✓ 設定已儲存');
+  } catch(e) { toast('儲存失敗：'+e.message, true); }
+}
+
+// ══ 載入所有資料 ══
+async function loadAll() {
+  setSyncing(true);
+  try {
+    // 載入行程
+    const td = await sGet(`${TRIP_SHEET}!A:K`);
+    const trows = (td.values||[]).slice(1);
+    trips = trows.filter(r=>r[1]===userEmail).map(r=>({
+      id:r[0]||'', date:r[2]||'', startCompany:r[3]||'', startTime:r[4]||'',
+      waypoints:r[5]||'', endCompany:r[6]||'', endTime:r[7]||'',
+      dist:+r[8]||0, area:r[9]||''
+    })).filter(r=>r.id);
+
+    // 載入費用
+    const ed = await sGet(`${EXP_SHEET}!A:K`);
+    const erows = (ed.values||[]).slice(1);
+    expenses = {};
+    erows.filter(r=>r[2]===userEmail).forEach(r=>{
+      const tid = r[1];
+      if (!tid) return;
+      expenses[tid] = {
+        id:r[0]||'', hsr:+r[4]||0, etc:+r[5]||0, park:+r[6]||0,
+        oil:+r[7]||0, taxi:+r[8]||0, total:+r[9]||0
+      };
+    });
+
+    renderAll();
+    updateExpTripSelect();
+  } catch(e) { toast('讀取失敗：'+e.message, true); }
+  setSyncing(false);
+}
+
+// ══ 新增行程 ══
+async function addTrip() {
+  const date         = document.getElementById('trip-date').value;
+  let   startCompany = document.getElementById('start-company').value.trim();
+  const startTime    = document.getElementById('start-time').value;
+  const endCompany   = document.getElementById('end-company').value.trim();
+  const endTime      = document.getElementById('end-time').value;
+  const area         = document.getElementById('trip-area').value.trim();
+
+  if (!date)         { toast('請選擇日期',true); return; }
+  if (!startCompany) { toast('請填寫起始名稱',true); return; }
+  if (mapsDist <= 0) {
+    if (!confirm('⚠️ 此筆紀錄沒有里程數\n\n確定儲存嗎？')) return;
+  }
+
+  const waypoints = getWaypoints().join(' → ');
+  const id  = Date.now().toString();
+  const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei'});
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.textContent = '儲存中...';
+  try {
+    await sAppend(`${TRIP_SHEET}!A:K`, [[
+      id, userEmail, date, startCompany, startTime,
+      waypoints, endCompany, endTime, mapsDist.toFixed(1), area, now
+    ]]);
+    trips.unshift({ id, date, startCompany, startTime, waypoints, endCompany, endTime, dist:mapsDist, area });
+
+    // 清空表單
+    ['start-company','start-time','start-search','end-company','end-time','end-search','trip-area']
+      .forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+    clearWaypoints();
+    mapsDist = 0;
+    document.getElementById('dist-show').textContent = '—';
+    document.getElementById('maps-status').textContent = '';
+
+    toast('✓ 行程已儲存！到「費用」頁面新增費用');
+    updateExpTripSelect();
+    renderAll();
+  } catch(e) { toast('儲存失敗：'+e.message, true); }
+  btn.disabled = false; btn.textContent = '✓ 儲存行程';
+}
+
+// ══ 費用明細 ══
+function updateExpTripSelect() {
+  const sel = document.getElementById('exp-trip-select');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— 請選擇行程 —</option>';
+  // 最近30筆，按日期排序
+  [...trips].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30).forEach(t=>{
+    const hasExp = expenses[t.id] ? ' ✓' : '';
+    sel.innerHTML += `<option value="${t.id}">${t.date} ${t.startCompany}→${t.endCompany||'—'}${hasExp}</option>`;
+  });
+  if (cur) sel.value = cur;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('exp-trip-select').addEventListener('change', onTripSelect);
+  ['exp-hsr','exp-etc','exp-park','exp-oil','exp-taxi'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', updateExpPreview);
+  });
+});
+
+function ge(id) { return parseFloat(document.getElementById(id).value)||0; }
+
+function updateExpPreview() {
+  const total = ge('exp-hsr')+ge('exp-etc')+ge('exp-park')+ge('exp-oil')+ge('exp-taxi');
+  const cur   = settings.currency||'NT$';
+  document.getElementById('exp-total-preview').textContent = `${cur} ${total.toLocaleString()}`;
+}
+
+function onTripSelect() {
+  const tid = document.getElementById('exp-trip-select').value;
+  if (!tid) {
+    document.getElementById('exp-form-card').style.display  = 'none';
+    document.getElementById('exp-saved-card').style.display = 'none';
+    return;
+  }
+
+  const exp = expenses[tid];
+  if (exp) {
+    // 已有費用 → 顯示已儲存
+    showSavedExpenses(tid, exp);
+  } else {
+    // 沒有費用 → 顯示輸入表單
+    ['exp-hsr','exp-etc','exp-park','exp-oil','exp-taxi'].forEach(id=>document.getElementById(id).value='');
+    updateExpPreview();
+    document.getElementById('exp-form-card').style.display  = 'block';
+    document.getElementById('exp-saved-card').style.display = 'none';
+  }
+}
+
+function showSavedExpenses(tid, exp) {
+  const cur = settings.currency||'NT$';
+  const items = [
+    ['🚄','高鐵費用', exp.hsr],
+    ['🛣️','回數票/ETC', exp.etc],
+    ['🅿️','停車費', exp.park],
+    ['⛽','油資單', exp.oil],
+    ['🚕','計程車費', exp.taxi],
+  ].filter(([,, v]) => v > 0);
+
+  const list = document.getElementById('exp-saved-list');
+  list.innerHTML = items.length
+    ? items.map(([icon, label, val]) =>
+        `<div class="exp-item"><span class="exp-icon">${icon}</span><span class="exp-label">${label}</span><span class="exp-amount">${cur} ${val.toLocaleString()}</span></div>`
+      ).join('') + `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--text2)">總計</span><span style="font-family:var(--mono);font-size:16px;color:var(--accent);font-weight:500">${cur} ${exp.total.toLocaleString()}</span></div>`
+    : '<div class="empty" style="padding:16px 0">尚無費用紀錄</div>';
+
+  document.getElementById('exp-form-card').style.display  = 'none';
+  document.getElementById('exp-saved-card').style.display = 'block';
+}
+
+function editExpenses() {
+  const tid = document.getElementById('exp-trip-select').value;
+  const exp = expenses[tid];
+  if (exp) {
+    document.getElementById('exp-hsr').value  = exp.hsr  || '';
+    document.getElementById('exp-etc').value  = exp.etc  || '';
+    document.getElementById('exp-park').value = exp.park || '';
+    document.getElementById('exp-oil').value  = exp.oil  || '';
+    document.getElementById('exp-taxi').value = exp.taxi || '';
+    updateExpPreview();
+  }
+  document.getElementById('exp-form-card').style.display  = 'block';
+  document.getElementById('exp-saved-card').style.display = 'none';
+}
+
+async function saveExpenses() {
+  const tid = document.getElementById('exp-trip-select').value;
+  if (!tid) { toast('請先選擇行程', true); return; }
+
+  const trip = trips.find(t=>t.id===tid);
+  const hsr  = ge('exp-hsr'), etc = ge('exp-etc'), park = ge('exp-park');
+  const oil  = ge('exp-oil'), taxi = ge('exp-taxi');
+  const total = hsr+etc+park+oil+taxi;
+
+  if (total <= 0) { toast('請至少填寫一項費用', true); return; }
+
+  const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei'});
+  const cur = settings.currency||'NT$';
+
+  try {
+    const existing = expenses[tid];
+    if (existing && existing.id) {
+      // 找到該列更新
+      const d = await sGet(`${EXP_SHEET}!A:A`);
+      const rows = d.values||[];
+      let rowIdx = -1;
+      for (let i=1;i<rows.length;i++) { if(rows[i][0]===existing.id){rowIdx=i+1;break;} }
+      if (rowIdx>0) {
+        await sUpdate(`${EXP_SHEET}!A${rowIdx}:K${rowIdx}`,
+          [[existing.id, tid, userEmail, trip?.date||'', hsr, etc, park, oil, taxi, total, now]]);
+      }
+    } else {
+      // 新增
+      const id = Date.now().toString();
+      await sAppend(`${EXP_SHEET}!A:K`,
+        [[id, tid, userEmail, trip?.date||'', hsr, etc, park, oil, taxi, total, now]]);
+      expenses[tid] = { id, hsr, etc, park, oil, taxi, total };
+    }
+    expenses[tid] = { ...(expenses[tid]||{}), hsr, etc, park, oil, taxi, total };
+    showSavedExpenses(tid, expenses[tid]);
+    updateExpTripSelect();
+    renderAll();
+    toast('✓ 費用已儲存');
+  } catch(e) { toast('儲存失敗：'+e.message, true); }
+}
+
+// ══ 刪除行程 ══
+async function deleteTrip(id) {
+  if (!confirm('確定要刪除這筆行程？\n（對應的費用明細也會一起刪除）')) return;
+  try {
+    // 刪除行程列
+    const td = await sGet(`${TRIP_SHEET}!A:A`);
+    const trows = td.values||[];
+    let tRowIdx = -1;
+    for (let i=1;i<trows.length;i++) { if(String(trows[i][0])===String(id)){tRowIdx=i;break;} }
+
+    const allSheets = await fetch(`${SHEETS_API}/${SHEET_ID}?fields=sheets.properties`,
+      {headers:{Authorization:'Bearer '+accessToken}}).then(r=>r.json());
+
+    const reqs = [];
+    if (tRowIdx>0) {
+      const tSheet = allSheets.sheets.find(s=>s.properties.title===TRIP_SHEET);
+      if (tSheet) reqs.push({ deleteDimension:{ range:{ sheetId:tSheet.properties.sheetId, dimension:'ROWS', startIndex:tRowIdx, endIndex:tRowIdx+1 } } });
+    }
+
+    // 刪除對應費用列
+    if (expenses[id]?.id) {
+      const ed = await sGet(`${EXP_SHEET}!A:A`);
+      const erows = ed.values||[];
+      let eRowIdx = -1;
+      for (let i=1;i<erows.length;i++) { if(String(erows[i][0])===String(expenses[id].id)){eRowIdx=i;break;} }
+      if (eRowIdx>0) {
+        const eSheet = allSheets.sheets.find(s=>s.properties.title===EXP_SHEET);
+        if (eSheet) reqs.push({ deleteDimension:{ range:{ sheetId:eSheet.properties.sheetId, dimension:'ROWS', startIndex:eRowIdx, endIndex:eRowIdx+1 } } });
+      }
+    }
+
+    if (reqs.length) await sBatch(reqs);
+    trips = trips.filter(t=>t.id!==id);
+    delete expenses[id];
+    renderAll();
+    updateExpTripSelect();
+    toast('已刪除');
+  } catch(e) { toast('刪除失敗：'+e.message, true); }
+}
+
+// ══ 渲染 ══
+function switchTab(tab) {
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  if (tab==='records'||tab==='expenses') loadAll();
+  if (tab==='expenses') updateExpTripSelect();
+  if (tab==='records') {
+    const fm = document.getElementById('filter-month');
+    if (!fm.value) fm.value = new Date().toISOString().substring(0,7);
+    renderAll();
+  }
+}
+
+function getFiltered() {
+  const m = document.getElementById('filter-month')?.value||'';
+  const src = m ? trips.filter(t=>t.date.startsWith(m)) : trips;
+  return [...src].sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+function renderAll() { updateMonthTitle(); renderRecords(); updateSummary(); }
+
+function updateMonthTitle() {
+  const m = document.getElementById('filter-month')?.value||'';
+  const el = document.getElementById('month-title-label');
+  if (!el) return;
+  if (m) { const[y,mo]=m.split('-'); el.textContent=`${y} 年 ${parseInt(mo)} 月 出差費用`; }
+  else el.textContent = '全部出差費用';
+}
+
+function renderRecords() {
   const cur = settings.currency||'NT$';
   const filtered = getFiltered();
-  if (!filtered.length){toast('沒有資料可匯出',true);return;}
-  setExportLoading(true);
+  const list = document.getElementById('records-list');
+  if (!filtered.length) { list.innerHTML='<div class="empty">— 尚無行程紀錄 —<br>在「新增」頁面建立第一筆</div>'; return; }
 
-  // 匯出欄位（不含費率）
-  const headers = ['日期','起始公司','起始時間','中途站','抵達地點','結束時間','里程數KM','客戶區域','回數票/ETC','油資單','高鐵費用','停車費','計程車費','總費用'];
-  const sum = k => filtered.reduce((a,r)=>a+(+r[k]||0),0);
-  const sorted = [...filtered].sort((a,b) => (a.date||'').localeCompare(b.date||''));
-  const dataRows = sorted.map(r=>[
-    r.date, r.startCompany, r.startTime,
-    r.waypoints||'', r.endCompany||'', r.endTime, r.dist, r.area,
-    r.etc, r.oil, r.hsr, r.park, r.taxi||0, r.total
-  ]);
-  const totalRow = ['合計','','','','','',sum('dist').toFixed(1),'',
-    sum('etc'),sum('oil'),sum('hsr'),sum('park'),sum('taxi'),sum('total')];
+  list.innerHTML = filtered.map(t => {
+    const exp = expenses[t.id];
+    const total = exp ? exp.total : 0;
+    const expChips = exp ? [
+      exp.hsr  > 0 ? `<span class="chip purple">🚄 高鐵 ${exp.hsr}</span>` : '',
+      exp.etc  > 0 ? `<span class="chip yellow">🛣️ 回數票 ${exp.etc}</span>` : '',
+      exp.park > 0 ? `<span class="chip orange">🅿️ 停車 ${exp.park}</span>` : '',
+      exp.oil  > 0 ? `<span class="chip orange">⛽ 油資 ${exp.oil}</span>` : '',
+      exp.taxi > 0 ? `<span class="chip yellow">🚕 計程車 ${exp.taxi}</span>` : '',
+    ].filter(Boolean).join('') : '';
+
+    return `<div class="record-item">
+      <div class="record-top">
+        <div>
+          <div class="record-desc">${t.startCompany} → ${t.endCompany||'—'}</div>
+          ${t.waypoints?`<div class="record-meta" style="color:var(--accent2)">📍 ${t.waypoints}</div>`:''}
+          <div class="record-meta">${t.date}${t.area?' ／ '+t.area:''}${t.startTime?' ｜ '+t.startTime+' 出發':''}${t.endTime?' → '+t.endTime+' 抵達':''}</div>
+        </div>
+        <button class="btn btn-danger" onclick="deleteTrip('${t.id}')">刪除</button>
+      </div>
+      <div class="chips">
+        ${t.dist>0?`<span class="chip green">🚗 ${t.dist} km</span>`:''}
+        ${exp?`<span class="chip blue">${cur} ${total.toLocaleString()}</span>`:'<span class="chip" style="color:var(--danger);border-color:var(--danger)">尚未填費用</span>'}
+      </div>
+      ${expChips?`<div class="chips" style="margin-top:4px">${expChips}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function updateSummary() {
+  const filtered = getFiltered();
+  const totalDist  = filtered.reduce((a,t)=>a+t.dist,0);
+  const totalCost  = filtered.reduce((a,t)=>a+(expenses[t.id]?.total||0),0);
+  document.getElementById('s-count').textContent = filtered.length;
+  document.getElementById('s-dist').textContent  = totalDist.toFixed(1);
+  document.getElementById('s-total').textContent = totalCost.toLocaleString();
+}
+
+function setSyncing(on) {
+  document.getElementById('sync-dot').className  = 'sync-dot'+(on?' on':'');
+  document.getElementById('sync-label').textContent = on?'同步中...':'已同步';
+}
+
+// ══ Google Maps ══
+function initMaps() {
+  mapsReady = true;
+  setupSearch('start-search');
+  setupSearch('end-search');
+}
+window.initMaps = initMaps;
+
+function setupSearch(id) {
+  const input = document.getElementById(id);
+  if (!input||!mapsReady) return;
+  const svc = new google.maps.places.AutocompleteService();
+  const box = document.createElement('div');
+  box.style.cssText='position:fixed;z-index:99999;background:#1a1d27;border:1px solid #3ec8f0;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);max-height:220px;overflow-y:auto;display:none;';
+  document.body.appendChild(box);
+  function pos(){ const r=input.getBoundingClientRect(); box.style.left=r.left+'px'; box.style.top=(r.bottom+4)+'px'; box.style.width=r.width+'px'; }
+  function show(val) {
+    if(!val){ box.style.display='none'; return; }
+    pos();
+    svc.getPlacePredictions({input:val,componentRestrictions:{country:'tw'},language:'zh-TW'},(preds,status)=>{
+      box.innerHTML='';
+      if(status!==google.maps.places.PlacesServiceStatus.OK||!preds){box.style.display='none';return;}
+      box.style.display='block';
+      preds.slice(0,6).forEach(p=>{
+        const main=p.structured_formatting?.main_text||p.description;
+        const sub=p.structured_formatting?.secondary_text||'';
+        const item=document.createElement('div');
+        item.style.cssText='padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
+        item.innerHTML=`<div style="font-weight:600">${main}</div>${sub?`<div style="font-size:11px;color:#8b91a8;margin-top:2px">${sub}</div>`:''}`;
+        const sel=(e)=>{e.preventDefault();input.value=main;box.style.display='none';};
+        item.addEventListener('mousedown',sel);
+        item.addEventListener('touchstart',sel,{passive:false});
+        item.addEventListener('mouseover',()=>item.style.background='#22263a');
+        item.addEventListener('mouseout',()=>item.style.background='');
+        box.appendChild(item);
+      });
+    });
+  }
+  input.addEventListener('input',()=>show(input.value.trim()));
+  input.addEventListener('focus',()=>{if(input.value.trim())show(input.value.trim());});
+  input.addEventListener('blur',()=>setTimeout(()=>{box.style.display='none';},250));
+  window.addEventListener('scroll',()=>{if(box.style.display!=='none')pos();},true);
+}
+
+function setupSearchEl(input) {
+  if(!input||!mapsReady) return;
+  const svc=new google.maps.places.AutocompleteService();
+  const box=document.createElement('div');
+  box.style.cssText='position:fixed;z-index:99999;background:#1a1d27;border:1px solid #3ec8f0;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.5);max-height:200px;overflow-y:auto;display:none;';
+  document.body.appendChild(box);
+  function pos(){const r=input.getBoundingClientRect();box.style.left=r.left+'px';box.style.top=(r.bottom+4)+'px';box.style.width=r.width+'px';}
+  input.addEventListener('input',()=>{
+    const val=input.value.trim();
+    if(!val){box.style.display='none';return;}
+    pos();
+    svc.getPlacePredictions({input:val,componentRestrictions:{country:'tw'},language:'zh-TW'},(preds,status)=>{
+      box.innerHTML='';
+      if(status!==google.maps.places.PlacesServiceStatus.OK||!preds){box.style.display='none';return;}
+      box.style.display='block';
+      preds.slice(0,5).forEach(p=>{
+        const main=p.structured_formatting?.main_text||p.description;
+        const item=document.createElement('div');
+        item.style.cssText='padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
+        item.textContent=main;
+        const sel=(e)=>{e.preventDefault();input.value=main;box.style.display='none';};
+        item.addEventListener('mousedown',sel);
+        item.addEventListener('touchstart',sel,{passive:false});
+        item.addEventListener('mouseover',()=>item.style.background='#22263a');
+        item.addEventListener('mouseout',()=>item.style.background='');
+        box.appendChild(item);
+      });
+    });
+  });
+  input.addEventListener('blur',()=>setTimeout(()=>{box.style.display='none';},250));
+}
+
+function setVehicle(mode) {
+  vehicleMode = mode;
+  document.getElementById('v-car').classList.toggle('active', mode==='car');
+  document.getElementById('v-moto').classList.toggle('active', mode==='moto');
+  document.getElementById('vehicle-hint').textContent = mode==='car'
+    ? '汽車模式：走高速公路（最快路線）'
+    : '機車模式：避開高速公路，走省道';
+  if (mapsDist>0) calcByMaps();
+}
+
+async function calcByMaps() {
+  const startVal = document.getElementById('start-search').value.trim() || document.getElementById('start-company').value.trim();
+  const endVal   = document.getElementById('end-search').value.trim()   || document.getElementById('end-company').value.trim();
+  const status   = document.getElementById('maps-status');
+  const btn      = document.getElementById('maps-btn');
+
+  if (!startVal) { status.textContent='⚠ 請填寫起始搜尋地點'; return; }
+  if (!endVal)   { status.textContent='⚠ 請填寫抵達搜尋地點'; return; }
+  if (!mapsReady){ status.textContent='⚠ Google Maps 尚未載入'; return; }
+
+  btn.disabled=true; status.textContent='🗺️ 計算中...'; status.style.color='var(--accent3)';
+
+  const waypts = getWaypointSearchValues();
+  try {
+    const svc = new google.maps.DirectionsService();
+    const result = await new Promise((resolve,reject)=>{
+      svc.route({
+        origin: startVal+' 台灣', destination: endVal+' 台灣',
+        waypoints: waypts.map(w=>({location:w+' 台灣',stopover:true})),
+        travelMode: google.maps.TravelMode.DRIVING,
+        avoidHighways: vehicleMode==='moto',
+        region:'TW', language:'zh-TW',
+      },(res,st)=>{ if(st==='OK') resolve(res); else reject(new Error(st)); });
+    });
+    let totalM = 0;
+    result.routes[0].legs.forEach(l=>totalM+=l.distance.value);
+    mapsDist = totalM/1000;
+    document.getElementById('dist-show').textContent = mapsDist.toFixed(1);
+    const vm = vehicleMode==='car'?'🚗 汽車':'🛵 機車';
+    status.textContent = `✓ ${vm} ${mapsDist.toFixed(1)} km${waypts.length?'，含'+waypts.length+'個中途站':''}`;
+    status.style.color = 'var(--accent)';
+  } catch(e) {
+    let msg = e.message;
+    if(msg==='NOT_FOUND')      msg='找不到地點，請輸入更完整的地址';
+    if(msg==='ZERO_RESULTS')   msg='找不到路線';
+    if(msg==='REQUEST_DENIED') msg='API 權限不足';
+    status.textContent='⚠ '+msg; status.style.color='var(--danger)';
+  }
+  btn.disabled=false;
+}
+
+// ══ 中途站 ══
+function addWaypoint() {
+  waypointCount++;
+  const list  = document.getElementById('waypoints-list');
+  const empty = document.getElementById('waypoints-empty');
+  empty.style.display='none';
+  const div=document.createElement('div');
+  div.className='wp-item';
+  div.id=`wp-${waypointCount}`;
+  div.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span class="wp-num">站 ${list.children.length+1}</span>
+      <input type="text" placeholder="中途地點名稱（顯示用）" style="flex:1;background:transparent;border:none;border-bottom:1px solid #2e3352;padding:4px 0;font-size:14px;color:#e8ecf4;outline:none">
+      <button onclick="removeWaypoint('wp-${waypointCount}')" style="background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;padding:0 2px">×</button>
+    </div>
+    <div>
+      <label style="color:var(--accent2);font-size:10px;font-family:var(--mono)">📍 搜尋地點（Maps用）</label>
+      <input type="text" placeholder="輸入地址搜尋" style="width:100%;background:var(--bg);border:1px solid #3ec8f0;border-radius:6px;color:#e8ecf4;font-size:13px;padding:7px 10px;outline:none;">
+    </div>`;
+  list.appendChild(div);
+  const inputs = div.querySelectorAll('input');
+  inputs[0].focus();
+  setupSearchEl(inputs[1]);
+  updateWpNumbers();
+}
+
+function removeWaypoint(id) {
+  const el=document.getElementById(id); if(el)el.remove();
+  updateWpNumbers();
+  if (!document.querySelectorAll('.wp-item').length)
+    document.getElementById('waypoints-empty').style.display='block';
+}
+function updateWpNumbers() {
+  document.querySelectorAll('.wp-item').forEach((el,i)=>{ el.querySelector('.wp-num').textContent=`站 ${i+1}`; });
+}
+function getWaypoints() {
+  return Array.from(document.querySelectorAll('.wp-item')).map(el=>el.querySelectorAll('input')[0]?.value.trim()).filter(Boolean);
+}
+function getWaypointSearchValues() {
+  return Array.from(document.querySelectorAll('.wp-item')).map(el=>{
+    const s=el.querySelectorAll('input')[1]?.value.trim();
+    const n=el.querySelectorAll('input')[0]?.value.trim();
+    return s||n;
+  }).filter(Boolean);
+}
+function clearWaypoints() {
+  document.getElementById('waypoints-list').innerHTML='';
+  document.getElementById('waypoints-empty').style.display='block';
+  waypointCount=0;
+}
+
+// ══ 匯出 ══
+function doExport(type) {
+  const m        = document.getElementById('filter-month')?.value||'';
+  const cur      = settings.currency||'NT$';
+  const filtered = getFiltered();
+  if (!filtered.length) { toast('沒有資料可匯出',true); return; }
+
+  const userName   = settings.name || userEmail.split('@')[0];
+  const monthLabel = m ? (()=>{const[y,mo]=m.split('-');return`${y}年${parseInt(mo)}月`;})() : '';
+  const pdfTitle   = monthLabel ? `${userName} ${parseInt(m.split('-')[1])}月出差費用` : `${userName} 出差費用`;
+
+  const headers = ['日期','起始名稱','出發時間','中途站','抵達名稱','抵達時間','里程KM','客戶區域','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用'];
+  const rows = filtered.map(t=>{
+    const exp = expenses[t.id]||{};
+    return [t.date, t.startCompany, t.startTime, t.waypoints||'', t.endCompany||'', t.endTime,
+      t.dist||0, t.area||'', exp.hsr||0, exp.etc||0, exp.park||0, exp.oil||0, exp.taxi||0, exp.total||0];
+  });
+  const sumR = (idx) => rows.reduce((a,r)=>a+(+r[idx]||0),0);
+  const totalRow = ['合計','','','','','', sumR(6).toFixed(1),'', sumR(8),sumR(9),sumR(10),sumR(11),sumR(12),sumR(13)];
 
   if (type==='excel') {
     const wb=XLSX.utils.book_new();
-    const ws=XLSX.utils.aoa_to_sheet([headers,...dataRows,totalRow]);
-    ws['!cols']=[10,16,10,20,16,10,10,12,10,10,10,10,10,12].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb,ws,'出差費用紀錄');
-    XLSX.writeFile(wb,`出差費用紀錄${m?'_'+m:''}.xlsx`);
+    const ws=XLSX.utils.aoa_to_sheet([headers,...rows,totalRow]);
+    ws['!cols']=[10,14,10,18,14,10,10,10,10,12,10,10,10,12].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb,ws,'出差費用');
+    XLSX.writeFile(wb,`${pdfTitle}.xlsx`);
     toast('✓ Excel 已下載');
 
   } else if (type==='csv') {
-    const rows=dataRows.map(r=>r.map((v,i)=>i===1||i===4||i===8?`"${String(v||'').replace(/"/g,'""')}"`:v));
-    const csv='\uFEFF'+[headers,...rows,totalRow].map(r=>r.join(',')).join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const csv='\uFEFF'+[headers,...rows,totalRow].map(r=>r.map((v,i)=>[1,3,4].includes(i)?`"${String(v||'').replace(/"/g,'""')}"`:v).join(',')).join('\n');
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);a.download=`出差費用紀錄${m?'_'+m:''}.csv`;
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    a.download=`${pdfTitle}.csv`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);
     toast('✓ CSV 已下載');
 
   } else {
-    const sorted2 = [...filtered].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-    const trRows=sorted2.map(r=>`<tr>
-      <td>${r.date}</td><td>${r.startCompany}</td><td>${r.startTime}</td>
-      <td>${r.waypoints||''}</td><td>${r.endCompany||''}</td><td>${r.endTime}</td>
-      <td class="r">${r.dist}</td><td>${r.area||''}</td>
-      <td class="r">${r.etc>0?r.etc:''}</td><td class="r">${r.oil>0?r.oil:''}</td>
-      <td class="r">${r.hsr>0?r.hsr:''}</td><td class="r">${r.park>0?r.park:''}</td><td class="r">${(r.taxi||0)>0?r.taxi:''}</td>
-      <td class="r"><strong>${cur} ${r.total.toLocaleString()}</strong></td></tr>`).join('');
-    const userName  = settings.name || userEmail.split('@')[0];
-    const monthTitle = m ? (()=>{const[y,mo]=m.split('-');return `${y} 年 ${parseInt(mo)} 月`;})() : '全部';
-    const pdfTitle  = m ? `${userName} ${parseInt(m.split('-')[1])} 月出差費用` : `${userName} 出差費用`;
-    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${monthTitle}出差費用</title>
-<style>
-body{font-family:'Noto Sans TC',sans-serif;padding:28px;font-size:11px}
-h2{font-size:16px;margin-bottom:4px}.meta{color:#666;margin-bottom:16px}
+    const tr=rows.map(r=>`<tr>
+      <td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td>
+      <td>${r[4]}</td><td>${r[5]}</td><td class="r">${r[6]}</td><td>${r[7]}</td>
+      <td class="r">${r[8]>0?r[8]:''}</td><td class="r">${r[9]>0?r[9]:''}</td>
+      <td class="r">${r[10]>0?r[10]:''}</td><td class="r">${r[11]>0?r[11]:''}</td>
+      <td class="r">${r[12]>0?r[12]:''}</td>
+      <td class="r"><strong>${cur} ${(+r[13]).toLocaleString()}</strong></td></tr>`).join('');
+
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pdfTitle}</title>
+<style>body{font-family:'Noto Sans TC',sans-serif;padding:28px;font-size:11px}
+h1{text-align:center;font-size:20px;font-weight:900;margin-bottom:4px}
+.sub{text-align:center;color:#666;font-size:12px;margin-bottom:20px}
 .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
 .stat{border:1px solid #ddd;border-radius:6px;padding:8px 14px;text-align:center}
 .sv{font-size:15px;font-weight:bold}.sl{font-size:10px;color:#888;margin-top:2px}
 table{width:100%;border-collapse:collapse}
 th{background:#1a1d27;color:#fff;padding:5px 6px;font-size:10px;text-align:left;white-space:nowrap}
-th.r,td.r{text-align:right}
-td{padding:5px 6px;border-bottom:1px solid #eee;font-size:10px}
+th.r,td.r{text-align:right}td{padding:5px 6px;border-bottom:1px solid #eee;font-size:10px}
 tr:nth-child(even)td{background:#f9f9f9}
 .foot td{font-weight:bold;background:#efefef!important;border-top:2px solid #333}
-@media print{button{display:none}}
-</style></head><body>
-<h2 style="text-align:center;font-size:20px;font-weight:900;margin-bottom:6px">${pdfTitle}</h2><div style="text-align:center;color:#666;font-size:12px;margin-bottom:16px">${monthTitle} 出差費用明細</div>
-<div class="meta">共 ${filtered.length} 筆</div>
+@media print{button{display:none}}</style></head><body>
+<h1>${pdfTitle}</h1>
+<div class="sub">${monthLabel||'全部'} ／ 共 ${rows.length} 筆</div>
 <div class="stats">
-<div class="stat"><div class="sv">${sum('dist').toFixed(1)}</div><div class="sl">總公里</div></div>
-<div class="stat"><div class="sv">${cur} ${sum('etc').toLocaleString()}</div><div class="sl">回數票</div></div>
-<div class="stat"><div class="sv">${cur} ${sum('oil').toLocaleString()}</div><div class="sl">油資單</div></div>
-<div class="stat"><div class="sv">${cur} ${sum('hsr').toLocaleString()}</div><div class="sl">高鐵費</div></div>
-<div class="stat"><div class="sv">${cur} ${sum('park').toLocaleString()}</div><div class="sl">停車費</div></div>
-<div class="stat"><div class="sv">${cur} ${sum('taxi').toLocaleString()}</div><div class="sl">計程車費</div></div>
-<div class="stat"><div class="sv">${cur} ${sum('total').toLocaleString()}</div><div class="sl">總費用</div></div>
+<div class="stat"><div class="sv">${sumR(6).toFixed(1)}</div><div class="sl">總公里</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(8).toLocaleString()}</div><div class="sl">高鐵費</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(9).toLocaleString()}</div><div class="sl">回數票/ETC</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(10).toLocaleString()}</div><div class="sl">停車費</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(11).toLocaleString()}</div><div class="sl">油資單</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(12).toLocaleString()}</div><div class="sl">計程車費</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(13).toLocaleString()}</div><div class="sl">總費用</div></div>
 </div>
 <table><thead><tr>
-<th>日期</th><th>起始公司</th><th>起始時間</th>
-<th>中途站</th><th>抵達地點</th><th>結束時間</th>
-<th class="r">里程KM</th><th>客戶區域</th>
-<th class="r">回數票/ETC</th><th class="r">油資單</th><th class="r">高鐵費</th><th class="r">停車費</th><th class="r">計程車</th><th class="r">合計</th>
-</tr></thead><tbody>
-${trRows}
-<tr class="foot">
-<td colspan="6">合計</td><td class="r">${sum('dist').toFixed(1)}</td><td></td>
-<td class="r">${sum('etc').toLocaleString()}</td>
-<td class="r">${sum('oil').toLocaleString()}</td>
-<td class="r">${sum('hsr').toLocaleString()}</td>
-<td class="r">${sum('park').toLocaleString()}</td>
-<td class="r">${sum('taxi').toLocaleString()}</td>
-<td class="r"><strong>${cur} ${sum('total').toLocaleString()}</strong></td>
+<th>日期</th><th>起始</th><th>出發</th><th>中途站</th><th>抵達</th><th>抵達時間</th>
+<th class="r">里程</th><th>區域</th><th class="r">高鐵</th><th class="r">回數票</th>
+<th class="r">停車</th><th class="r">油資</th><th class="r">計程車</th><th class="r">合計</th>
+</tr></thead><tbody>${tr}
+<tr class="foot"><td colspan="6">合計</td><td class="r">${sumR(6).toFixed(1)}</td><td></td>
+<td class="r">${sumR(8).toLocaleString()}</td><td class="r">${sumR(9).toLocaleString()}</td>
+<td class="r">${sumR(10).toLocaleString()}</td><td class="r">${sumR(11).toLocaleString()}</td>
+<td class="r">${sumR(12).toLocaleString()}</td>
+<td class="r"><strong>${cur} ${sumR(13).toLocaleString()}</strong></td>
 </tr></tbody></table>
-<br><button onclick="window.print()" style="padding:10px 24px;background:#1a1d27;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">🖨 列印 / 儲存為 PDF</button>
+<br><button onclick="window.print()" style="padding:10px 24px;background:#1a1d27;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">🖨 列印 / PDF</button>
 </body></html>`;
-    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=`出差費用報表${m?'_'+m:''}.html`;
+    a.href=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+    a.download=`${pdfTitle}.html`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);
     toast('✓ 報表已下載，開啟後列印');
   }
-  setExportLoading(false);
 }
 
 // ══ Toast ══
 function toast(msg,isErr) {
   const t=document.getElementById('toast');
-  t.textContent=msg;t.className='toast'+(isErr?' error':'');
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+  t.textContent=msg; t.className='toast'+(isErr?' err':'');
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500);
 }
 </script>
 </body>
