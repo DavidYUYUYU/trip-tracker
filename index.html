@@ -1162,7 +1162,7 @@ function doExport(type) {
   if (type==='excel') {
     const wb=XLSX.utils.book_new();
     const ws=XLSX.utils.aoa_to_sheet([headers,...rows,totalRow]);
-    ws['!cols']=[10,14,10,18,14,10,10,10,10,12,10,10,10,12].map(w=>({wch:w}));
+    ws['!cols']=[10,14,10,18,14,10,10,10,10,10,12,10,10,10,12].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,ws,'出差費用');
     XLSX.writeFile(wb,`${pdfTitle}.xlsx`);
     toast('✓ Excel 已下載');
@@ -1179,10 +1179,10 @@ function doExport(type) {
     const tr=rows.map(r=>`<tr>
       <td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td>
       <td>${r[4]}</td><td>${r[5]}</td><td class="r">${r[6]}</td><td>${r[7]}</td>
-      <td class="r">${r[8]>0?r[8]:''}</td><td class="r">${r[9]>0?r[9]:''}</td>
-      <td class="r">${r[10]>0?r[10]:''}</td><td class="r">${r[11]>0?r[11]:''}</td>
-      <td class="r">${r[12]>0?r[12]:''}</td>
-      <td class="r"><strong>${cur} ${(+r[13]).toLocaleString()}</strong></td></tr>`).join('');
+      <td class="r">${+r[8]>0?r[8]:''}</td><td class="r">${+r[9]>0?r[9]:''}</td>
+      <td class="r">${+r[10]>0?r[10]:''}</td><td class="r">${+r[11]>0?r[11]:''}</td>
+      <td class="r">${+r[12]>0?r[12]:''}</td><td class="r">${+r[13]>0?r[13]:''}</td>
+      <td class="r"><strong>${cur} ${(+r[14]).toLocaleString()}</strong></td></tr>`).join('');
 
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pdfTitle}</title>
 <style>body{font-family:'Noto Sans TC',sans-serif;padding:28px;font-size:11px}
@@ -1195,29 +1195,30 @@ table{width:100%;border-collapse:collapse}
 th{background:#1a1d27;color:#fff;padding:5px 6px;font-size:10px;text-align:left;white-space:nowrap}
 th.r,td.r{text-align:right}td{padding:5px 6px;border-bottom:1px solid #eee;font-size:10px}
 tr:nth-child(even)td{background:#f9f9f9}
-.foot td{font-weight:bold;background:#efefef!important;border-top:2px solid #333}
+.foot td{font-weight:bold;background:#fff3cd!important;border-top:2px solid #f0ad4e;color:#333}
 @media print{button{display:none}}</style></head><body>
 <h1>${pdfTitle}</h1>
 <div class="sub">${monthLabel||'全部'} ／ 共 ${rows.length} 筆</div>
 <div class="stats">
 <div class="stat"><div class="sv">${sumR(6).toFixed(1)}</div><div class="sl">總公里</div></div>
-<div class="stat"><div class="sv">${cur} ${sumR(8).toLocaleString()}</div><div class="sl">高鐵費</div></div>
-<div class="stat"><div class="sv">${cur} ${sumR(9).toLocaleString()}</div><div class="sl">回數票/ETC</div></div>
-<div class="stat"><div class="sv">${cur} ${sumR(10).toLocaleString()}</div><div class="sl">停車費</div></div>
-<div class="stat"><div class="sv">${cur} ${sumR(11).toLocaleString()}</div><div class="sl">油資單</div></div>
-<div class="stat"><div class="sv">${cur} ${sumR(12).toLocaleString()}</div><div class="sl">計程車費</div></div>
-<div class="stat"><div class="sv">${cur} ${sumR(13).toLocaleString()}</div><div class="sl">總費用</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(8).toLocaleString()}</div><div class="sl">里程費用</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(9).toLocaleString()}</div><div class="sl">高鐵費</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(10).toLocaleString()}</div><div class="sl">回數票/ETC</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(11).toLocaleString()}</div><div class="sl">停車費</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(12).toLocaleString()}</div><div class="sl">油資單</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(13).toLocaleString()}</div><div class="sl">計程車費</div></div>
+<div class="stat"><div class="sv">${cur} ${sumR(14).toLocaleString()}</div><div class="sl">總費用</div></div>
 </div>
 <table><thead><tr>
 <th>日期</th><th>起始</th><th>出發</th><th>中途站</th><th>抵達</th><th>抵達時間</th>
-<th class="r">里程</th><th>區域</th><th class="r">高鐵</th><th class="r">回數票</th>
+<th class="r">里程</th><th>區域</th><th class="r">里程費</th><th class="r">高鐵</th><th class="r">回數票</th>
 <th class="r">停車</th><th class="r">油資</th><th class="r">計程車</th><th class="r">合計</th>
 </tr></thead><tbody>${tr}
 <tr class="foot"><td colspan="6">合計</td><td class="r">${sumR(6).toFixed(1)}</td><td></td>
 <td class="r">${sumR(8).toLocaleString()}</td><td class="r">${sumR(9).toLocaleString()}</td>
 <td class="r">${sumR(10).toLocaleString()}</td><td class="r">${sumR(11).toLocaleString()}</td>
-<td class="r">${sumR(12).toLocaleString()}</td>
-<td class="r"><strong>${cur} ${sumR(13).toLocaleString()}</strong></td>
+<td class="r">${sumR(12).toLocaleString()}</td><td class="r">${sumR(13).toLocaleString()}</td>
+<td class="r"><strong>${cur} ${sumR(14).toLocaleString()}</strong></td>
 </tr></tbody></table>
 <br><button onclick="window.print()" style="padding:10px 24px;background:#1a1d27;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">🖨 列印 / PDF</button>
 </body></html>`;
