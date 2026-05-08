@@ -612,13 +612,25 @@ async function addRecord() {
   const endTime      = document.getElementById('end-time').value;
   if (!date)         { toast('請選擇日期',true); return; }
   if (!startCompany) { toast('請填寫起始地點',true); return; }
-  if (mapsDist <= 0) { toast('請先用 Google Maps 計算里程',true); return; }
 
-  const rate  = g('rate-input');
-  const dist  = mapsDist;
-  const mile  = +(dist * rate).toFixed(0);
-  const hsr=g('cost-hsr'),etc=g('cost-etc'),park=g('cost-park'),oil=g('cost-oil');
-  const total=mile+hsr+etc+park+oil;
+  const rate = g('rate-input');
+  const dist = mapsDist;
+  const mile = +(dist * rate).toFixed(0);
+  const hsr=g('cost-hsr'), etc=g('cost-etc'), park=g('cost-park'), oil=g('cost-oil'), taxi=g('cost-taxi');
+  const total = mile + hsr + etc + park + oil + taxi;
+
+  // 里程或費用至少填一項
+  const hasDist = dist > 0;
+  const hasFees = hsr+etc+park+oil+taxi > 0;
+  if (!hasDist && !hasFees) {
+    toast('請計算里程，或至少填寫一項費用',true); return;
+  }
+
+  // 沒有里程時跳出提醒，讓使用者確認
+  if (!hasDist) {
+    if (!confirm('⚠️ 此筆紀錄沒有里程數\n\n確定要儲存嗎？')) return;
+  }
+
   const id  = Date.now().toString();
   const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei'});
 
