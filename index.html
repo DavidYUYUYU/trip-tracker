@@ -271,6 +271,10 @@ select:focus{border-color:var(--accent)}
           <span style="font-size:12px;color:var(--text2)">km</span>
         </div>
       </div>
+      <div id="mile-cost-box" style="display:none;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">里程費用（<span id="rate-display">—</span> 元/km）</span>
+        <span style="font-family:var(--mono);font-size:18px;color:var(--accent2);font-weight:500" id="mile-cost-show">—</span>
+      </div>
     </div>
 
     <button class="btn btn-primary" id="save-btn" onclick="addTrip()">✓ 儲存行程</button>
@@ -317,6 +321,8 @@ select:focus{border-color:var(--accent)}
 
     <div class="card" id="exp-form-card" style="display:none">
       <div class="card-title">費用項目</div>
+      <div id="mile-cost-hint" style="display:none;font-size:12px;color:var(--accent);font-family:var(--mono);margin-bottom:12px;padding:10px;background:rgba(91,224,168,0.08);border:1px solid var(--accent);border-radius:8px"></div>
+      <input type="hidden" id="exp-mile-hidden" value="0">
       <div style="display:flex;flex-direction:column;gap:10px">
         <div class="exp-item" style="border:none;padding:0">
           <span class="exp-icon">🚄</span>
@@ -412,7 +418,7 @@ const EXP_SHEET    = '費用明細';
 const SET_SHEET    = '個人設定';
 
 const TRIP_HEADERS = ['ID','Email','日期','起始名稱','出發時間','中途站','抵達名稱','抵達時間','里程KM','客戶區域','建立時間'];
-const EXP_HEADERS  = ['ID','TripID','Email','日期','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用','建立時間'];
+const EXP_HEADERS  = ['ID','TripID','Email','日期','里程費用','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用','建立時間'];
 const SET_HEADERS  = ['Email','姓名','費率','貨幣'];
 
 // ══ 狀態 ══
@@ -597,15 +603,15 @@ async function loadAll() {
     })).filter(r=>r.id);
 
     // 載入費用
-    const ed = await sGet(`${EXP_SHEET}!A:K`);
+    const ed = await sGet(`${EXP_SHEET}!A:L`);
     const erows = (ed.values||[]).slice(1);
     expenses = {};
     erows.filter(r=>r[2]===userEmail).forEach(r=>{
       const tid = r[1];
       if (!tid) return;
       expenses[tid] = {
-        id:r[0]||'', hsr:+r[4]||0, etc:+r[5]||0, park:+r[6]||0,
-        oil:+r[7]||0, taxi:+r[8]||0, total:+r[9]||0
+        id:r[0]||'', mile:+r[4]||0, hsr:+r[5]||0, etc:+r[6]||0, park:+r[7]||0,
+        oil:+r[8]||0, taxi:+r[9]||0, total:+r[10]||0
       };
     });
 
@@ -681,7 +687,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function ge(id) { return parseFloat(document.getElementById(id).value)||0; }
 
 function updateExpPreview() {
-  const total = ge('exp-hsr')+ge('exp-etc')+ge('exp-park')+ge('exp-oil')+ge('exp-taxi');
+  const mile  = parseFloat(document.getElementById('exp-mile-hidden')?.value)||0;
+  const total = mile+ge('exp-hsr')+ge('exp-etc')+ge('exp-park')+ge('exp-oil')+ge('exp-taxi');
   const cur   = settings.currency||'NT$';
   document.getElementById('exp-total-preview').textContent = `${cur} ${total.toLocaleString()}`;
 }
@@ -699,8 +706,25 @@ function onTripSelect() {
     // 已有費用 → 顯示已儲存
     showSavedExpenses(tid, exp);
   } else {
-    // 沒有費用 → 顯示輸入表單
+    // 沒有費用 → 顯示輸入表單，自動帶入里程費用
     ['exp-hsr','exp-etc','exp-park','exp-oil','exp-taxi'].forEach(id=>document.getElementById(id).value='');
+    // 自動計算里程費用並顯示提示
+    const trip = trips.find(t=>t.id===tid);
+    const rate = parseFloat(settings.rate)||0;
+    if (trip && trip.dist > 0 && rate > 0) {
+      const mileCost = +(trip.dist * rate).toFixed(0);
+      const cur = settings.currency||'NT$';
+      const mileHint = document.getElementById('mile-cost-hint');
+      if (mileHint) {
+        mileHint.textContent = `📏 里程費用：${trip.dist} km × ${rate} 元/km = ${cur} ${mileCost.toLocaleString()}（已自動加入總計）`;
+        mileHint.style.display = 'block';
+      }
+      document.getElementById('exp-mile-hidden').value = mileCost;
+    } else {
+      const mileHint = document.getElementById('mile-cost-hint');
+      if (mileHint) mileHint.style.display = 'none';
+      document.getElementById('exp-mile-hidden').value = 0;
+    }
     updateExpPreview();
     document.getElementById('exp-form-card').style.display  = 'block';
     document.getElementById('exp-saved-card').style.display = 'none';
@@ -732,11 +756,21 @@ function editExpenses() {
   const tid = document.getElementById('exp-trip-select').value;
   const exp = expenses[tid];
   if (exp) {
+    document.getElementById('exp-mile-hidden').value = exp.mile || 0;
     document.getElementById('exp-hsr').value  = exp.hsr  || '';
     document.getElementById('exp-etc').value  = exp.etc  || '';
     document.getElementById('exp-park').value = exp.park || '';
     document.getElementById('exp-oil').value  = exp.oil  || '';
     document.getElementById('exp-taxi').value = exp.taxi || '';
+    // 顯示里程費用提示
+    const trip = trips.find(t=>t.id===tid);
+    const rate = parseFloat(settings.rate)||0;
+    const mileHint = document.getElementById('mile-cost-hint');
+    if (mileHint && trip && (exp.mile||0) > 0) {
+      const cur = settings.currency||'NT$';
+      mileHint.textContent = `📏 里程費用：${trip.dist} km × ${rate} 元/km = ${cur} ${(exp.mile||0).toLocaleString()}`;
+      mileHint.style.display = 'block';
+    }
     updateExpPreview();
   }
   document.getElementById('exp-form-card').style.display  = 'block';
@@ -748,11 +782,12 @@ async function saveExpenses() {
   if (!tid) { toast('請先選擇行程', true); return; }
 
   const trip = trips.find(t=>t.id===tid);
+  const mile = parseFloat(document.getElementById('exp-mile-hidden')?.value)||0;
   const hsr  = ge('exp-hsr'), etc = ge('exp-etc'), park = ge('exp-park');
   const oil  = ge('exp-oil'), taxi = ge('exp-taxi');
-  const total = hsr+etc+park+oil+taxi;
+  const total = mile+hsr+etc+park+oil+taxi;
 
-  if (total <= 0) { toast('請至少填寫一項費用', true); return; }
+  if (total <= 0) { toast('請至少填寫一項費用或有里程費用', true); return; }
 
   const now = new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei'});
   const cur = settings.currency||'NT$';
@@ -772,9 +807,9 @@ async function saveExpenses() {
     } else {
       // 新增
       const id = Date.now().toString();
-      await sAppend(`${EXP_SHEET}!A:K`,
-        [[id, tid, userEmail, trip?.date||'', hsr, etc, park, oil, taxi, total, now]]);
-      expenses[tid] = { id, hsr, etc, park, oil, taxi, total };
+      await sAppend(`${EXP_SHEET}!A:L`,
+        [[id, tid, userEmail, trip?.date||'', mile, hsr, etc, park, oil, taxi, total, now]]);
+      expenses[tid] = { id, mile, hsr, etc, park, oil, taxi, total };
     }
     expenses[tid] = { ...(expenses[tid]||{}), hsr, etc, park, oil, taxi, total };
     showSavedExpenses(tid, expenses[tid]);
@@ -980,6 +1015,27 @@ function setupSearchEl(input) {
   input.addEventListener('blur',()=>setTimeout(()=>{box.style.display='none';},250));
 }
 
+function showMileCost() {
+  const rate = parseFloat(settings.rate) || 0;
+  const box  = document.getElementById('mile-cost-box');
+  const rateEl = document.getElementById('rate-display');
+  const costEl = document.getElementById('mile-cost-show');
+  if (mapsDist > 0 && rate > 0) {
+    const cost = +(mapsDist * rate).toFixed(0);
+    const cur  = settings.currency || 'NT$';
+    rateEl.textContent = rate;
+    costEl.textContent = `${cur} ${cost.toLocaleString()}`;
+    box.style.display = 'flex';
+  } else if (mapsDist > 0 && rate <= 0) {
+    rateEl.textContent = '未設定';
+    costEl.textContent = '請至設定頁填寫費率';
+    costEl.style.fontSize = '12px';
+    box.style.display = 'flex';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
 function setVehicle(mode) {
   vehicleMode = mode;
   document.getElementById('v-car').classList.toggle('active', mode==='car');
@@ -1018,6 +1074,7 @@ async function calcByMaps() {
     result.routes[0].legs.forEach(l=>totalM+=l.distance.value);
     mapsDist = totalM/1000;
     document.getElementById('dist-show').textContent = mapsDist.toFixed(1);
+    showMileCost();
     const vm = vehicleMode==='car'?'🚗 汽車':'🛵 機車';
     status.textContent = `✓ ${vm} ${mapsDist.toFixed(1)} km${waypts.length?'，含'+waypts.length+'個中途站':''}`;
     status.style.color = 'var(--accent)';
@@ -1093,14 +1150,14 @@ function doExport(type) {
   const monthLabel = m ? (()=>{const[y,mo]=m.split('-');return`${y}年${parseInt(mo)}月`;})() : '';
   const pdfTitle   = monthLabel ? `${userName} ${parseInt(m.split('-')[1])}月出差費用` : `${userName} 出差費用`;
 
-  const headers = ['日期','起始名稱','出發時間','中途站','抵達名稱','抵達時間','里程KM','客戶區域','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用'];
+  const headers = ['日期','起始名稱','出發時間','中途站','抵達名稱','抵達時間','里程KM','客戶區域','里程費用','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用'];
   const rows = filtered.map(t=>{
     const exp = expenses[t.id]||{};
     return [t.date, t.startCompany, t.startTime, t.waypoints||'', t.endCompany||'', t.endTime,
-      t.dist||0, t.area||'', exp.hsr||0, exp.etc||0, exp.park||0, exp.oil||0, exp.taxi||0, exp.total||0];
+      t.dist||0, t.area||'', exp.mile||0, exp.hsr||0, exp.etc||0, exp.park||0, exp.oil||0, exp.taxi||0, exp.total||0];
   });
-  const sumR = (idx) => rows.reduce((a,r)=>a+(+r[idx]||0),0);
-  const totalRow = ['合計','','','','','', sumR(6).toFixed(1),'', sumR(8),sumR(9),sumR(10),sumR(11),sumR(12),sumR(13)];
+  const sumR = (idx) => rows.reduce((a,r)=>a+(+r[idx]||0),0); // 8=里程費,9=高鐵,10=ETC,11=停車,12=油資,13=計程車,14=總計
+  const totalRow = ['合計','','','','','', sumR(6).toFixed(1),'', sumR(8),sumR(9),sumR(10),sumR(11),sumR(12),sumR(13),sumR(14)];
 
   if (type==='excel') {
     const wb=XLSX.utils.book_new();
