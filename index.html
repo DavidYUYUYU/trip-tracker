@@ -649,7 +649,7 @@ async function addTrip() {
     ]]);
 
     // 同時自動儲存里程費用到費用明細
-    const rate     = parseFloat(settings.rate) || 0;
+    const rate     = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
     const mileCost = mapsDist > 0 && rate > 0 ? +(mapsDist * rate).toFixed(0) : 0;
     if (mileCost > 0) {
       const expId = (Date.now()+1).toString();
@@ -670,8 +670,16 @@ async function addTrip() {
     document.getElementById('maps-status').textContent = '';
 
     const cur = settings.currency || 'NT$';
-    const rateMsg = mileCost > 0 ? `，里程費 ${cur} ${mileCost.toLocaleString()} 已自動記錄` : '';
-    toast(`✓ 行程已儲存${rateMsg}！可到「費用」頁補填其他費用`);
+    if (mileCost > 0) {
+      toast(`✓ 行程已儲存，里程費 ${cur} ${mileCost.toLocaleString()} 已記錄`);
+    } else {
+      const rate2 = parseFloat(document.getElementById('default-rate').value) || 0;
+      if (mapsDist > 0 && rate2 <= 0) {
+        toast('✓ 行程已儲存（請到設定頁填寫費率以自動計算里程費）');
+      } else {
+        toast('✓ 行程已儲存，可到「費用」頁補填其他費用');
+      }
+    }
     updateExpTripSelect();
     renderAll();
   } catch(e) { toast('儲存失敗：'+e.message, true); }
@@ -1030,7 +1038,7 @@ function setupSearchEl(input) {
 }
 
 function showMileCost() {
-  const rate = parseFloat(settings.rate) || 0;
+  const rate = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
   const box  = document.getElementById('mile-cost-box');
   const rateEl = document.getElementById('rate-display');
   const costEl = document.getElementById('mile-cost-show');
