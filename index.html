@@ -647,6 +647,18 @@ async function addTrip() {
       id, userEmail, date, startCompany, startTime,
       waypoints, endCompany, endTime, mapsDist.toFixed(1), area, now
     ]]);
+
+    // 同時自動儲存里程費用到費用明細
+    const rate     = parseFloat(settings.rate) || 0;
+    const mileCost = mapsDist > 0 && rate > 0 ? +(mapsDist * rate).toFixed(0) : 0;
+    if (mileCost > 0) {
+      const expId = (Date.now()+1).toString();
+      await sAppend(`${EXP_SHEET}!A:L`, [[
+        expId, id, userEmail, date, mileCost, 0, 0, 0, 0, 0, mileCost, now
+      ]]);
+      expenses[id] = { id:expId, mile:mileCost, hsr:0, etc:0, park:0, oil:0, taxi:0, total:mileCost };
+    }
+
     trips.unshift({ id, date, startCompany, startTime, waypoints, endCompany, endTime, dist:mapsDist, area });
 
     // 清空表單
@@ -657,7 +669,9 @@ async function addTrip() {
     document.getElementById('dist-show').textContent = '—';
     document.getElementById('maps-status').textContent = '';
 
-    toast('✓ 行程已儲存！到「費用」頁面新增費用');
+    const cur = settings.currency || 'NT$';
+    const rateMsg = mileCost > 0 ? `，里程費 ${cur} ${mileCost.toLocaleString()} 已自動記錄` : '';
+    toast(`✓ 行程已儲存${rateMsg}！可到「費用」頁補填其他費用`);
     updateExpTripSelect();
     renderAll();
   } catch(e) { toast('儲存失敗：'+e.message, true); }
