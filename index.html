@@ -703,6 +703,7 @@ async function addTrip() {
 
     const rate     = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
     const mileCost = mapsDist > 0 && rate > 0 ? +(mapsDist * rate).toFixed(0) : 0;
+    const distSnap = mapsDist; // 在清空前先存起來
 
     trips.unshift({ id, date, startCompany, startTime, waypoints, endCompany, endTime, dist:mapsDist, area });
 
@@ -715,7 +716,10 @@ async function addTrip() {
     document.getElementById('maps-status').textContent = '';
 
     // 開啟費用輸入 Modal
-    const tripInfo = `${date} ${startCompany} → ${endCompany||'—'}${mapsDist>0?' ｜ '+mapsDist.toFixed(1)+' km':''}`;
+    const tripInfo = `${date} ${startCompany} → ${endCompany||'—'}${distSnap>0?' ｜ '+distSnap.toFixed(1)+' km':''}`;
+    if (rate <= 0) {
+      toast('⚠ 請先到設定頁填寫費率，再新增行程', true);
+    }
     openExpModal(id, tripInfo, mileCost);
     updateExpTripSelect();
     renderAll();
@@ -1304,8 +1308,12 @@ function openExpModal(tripId, tripInfo, mileCost) {
   const rate    = parseFloat(document.getElementById('default-rate').value) || parseFloat(settings.rate) || 0;
 
   document.getElementById('modal-trip-info').textContent = tripInfo;
-  document.getElementById('modal-mile-rate').textContent = rate > 0 ? `（${rate} 元/km）` : '';
-  document.getElementById('modal-mile-cost').textContent = `${cur} ${mileCost.toLocaleString()}`;
+  document.getElementById('modal-mile-rate').textContent = rate > 0
+    ? `（${rate} 元/km）`
+    : '（⚠ 請先到設定頁填寫費率）';
+  document.getElementById('modal-mile-cost').textContent = rate > 0
+    ? `${cur} ${mileCost.toLocaleString()}`
+    : `${cur} 0（費率未設定）`;
   ['m-hsr','m-etc','m-park','m-oil','m-taxi'].forEach(id => document.getElementById(id).value = '');
   updateModalTotal();
   document.getElementById('exp-modal').style.display = 'block';
