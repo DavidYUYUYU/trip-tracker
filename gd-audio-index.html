@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>GD AUDIO 庫存保固系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+<!-- Google Sign-In -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #f5f2ed;
+  --surface: #ffffff;
+  --surface2: #f0ece4;
+  --border: #ddd8ce;
+  --accent: #1a1a1a;
+  --red: #c8392b;
+  --green: #2d7a4a;
+  --yellow: #d4820a;
+  --blue: #1a5fa8;
+  --r: 4px;
+  --text: #1a1a1a;
+  --text2: #666;
+  --text3: #aaa;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+/* ── LOGIN SCREEN ── */
+#login-screen {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent);
+  flex-direction: column; gap: 32px; padding: 24px;
+}
+.login-box {
+  background: #fff; border-radius: 8px;
+  padding: 40px 36px; width: 100%; max-width: 360px;
+  text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,.3);
+}
+.login-logo { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 6px; margin-bottom: 4px; }
+.login-sub { font-size: 11px; letter-spacing: 3px; color: var(--text2); font-family: 'DM Mono', monospace; margin-bottom: 32px; }
+.login-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text3); font-size: 12px; }
+.login-divider::before, .login-divider::after { content:''; flex:1; height:1px; background: var(--border); }
+.login-manual { display: flex; flex-direction: column; gap: 10px; }
+.login-manual input { padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--r); font-size: 14px; font-family: 'DM Sans', sans-serif; }
+.login-manual input:focus { outline: none; border-color: var(--accent); }
+.login-err { color: var(--red); font-size: 12px; display: none; margin-top: 4px; }
+
+/* ── HEADER ── */
+header {
+  background: var(--accent); color: #fff;
+  padding: 0 16px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 4px; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.12); border-radius: 20px;
+  padding: 5px 12px 5px 8px; cursor: pointer;
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--red); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; overflow: hidden; flex-shrink: 0;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-name { font-size: 12px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.role-tag { font-size: 9px; font-family: 'DM Mono', monospace; background: rgba(255,255,255,.2); padding: 1px 6px; border-radius: 10px; }
+
+/* ── TABS ── */
+.tabs { background: var(--surface); border-bottom: 2px solid var(--border); display: flex; padding: 0 12px; overflow-x: auto; }
+.tab { padding: 12px 16px; cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .15s; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab:hover:not(.active) { color: var(--text); }
+.tab.hidden { display: none; }
+
+/* ── PANELS ── */
+.panel { display: none; padding: 14px; padding-bottom: 80px; max-width: 640px; margin: 0 auto; }
+.panel.active { display: block; }
+
+/* ── CARD ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 12px; }
+.card-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); margin-bottom: 14px; }
+
+/* ── FORM ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media(max-width:480px){ .form-grid { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1/-1; }
+label { font-size: 11px; color: var(--text2); font-weight: 500; }
+input, select, textarea { background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--r); color: var(--text); padding: 9px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; width: 100%; transition: border-color .15s; }
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+input::placeholder { color: var(--text3); }
+.scan-row { display: flex; gap: 8px; }
+.scan-row input { flex: 1; font-family: 'DM Mono', monospace; }
+
+/* ── BUTTONS ── */
+.btn { padding: 9px 18px; border: none; border-radius: var(--r); cursor: pointer; font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #333; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-red:hover { background: #a02820; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text2); border: 1.5px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+.btn-scan { background: var(--bg); border: 1.5px solid var(--accent); color: var(--accent); padding: 9px 12px; }
+.btn-full { width: 100%; justify-content: center; margin-top: 12px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── STATS ── */
+.stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; text-align: center; }
+.stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 34px; line-height: 1; }
+.stat-label { font-size: 10px; color: var(--text2); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+/* ── RECORD ITEMS ── */
+.rec-list { display: flex; flex-direction: column; gap: 8px; }
+.rec-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; cursor: pointer; transition: border-color .15s; }
+.rec-item:hover { border-color: var(--accent); }
+.rec-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.rec-name { font-weight: 600; font-size: 14px; }
+.rec-model { font-size: 12px; color: var(--text2); margin-top: 1px; }
+.rec-serial { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); margin-top: 5px; }
+.rec-bottom { margin-top: 7px; display: flex; gap: 12px; flex-wrap: wrap; }
+.rec-meta { font-size: 11px; color: var(--text3); }
+.rec-meta strong { color: var(--text2); }
+
+.badge { font-size: 10px; font-family: 'DM Mono', monospace; padding: 3px 8px; border-radius: 2px; white-space: nowrap; flex-shrink: 0; }
+.b-stock { background: #e8f4ee; color: var(--green); border: 1px solid #b8dcca; }
+.b-sold { background: #fff3e0; color: var(--yellow); border: 1px solid #f0c88a; }
+.b-ok { background: #e8f4ee; color: var(--green); border: 1px solid #b8dcca; }
+.b-warn { background: #fff8e0; color: var(--yellow); border: 1px solid #e8d08a; }
+.b-exp { background: #fdf0f0; color: var(--red); border: 1px solid #f0c0c0; }
+
+/* ── SEARCH ── */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-wrap input { padding-left: 36px; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text3); }
+.filter-row { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+.chip { padding: 5px 13px; border-radius: 20px; border: 1.5px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
+/* ── OUT MODE TOGGLE ── */
+.mode-toggle { display: flex; background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 14px; }
+.mode-btn { flex: 1; padding: 9px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text2); transition: all .15s; }
+.mode-btn.active { background: var(--accent); color: #fff; }
+
+/* ── SCAN RESULT BOX ── */
+.scan-result {
+  display: none; background: var(--bg); border: 2px solid var(--accent);
+  border-radius: var(--r); padding: 14px 16px; margin: 12px 0;
+}
+.scan-result.visible { display: block; }
+.sr-serial { font-family: 'DM Mono', monospace; font-size: 18px; color: var(--accent); font-weight: 500; }
+.sr-model { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+/* ── DETAIL SHEET ── */
+.detail-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; align-items: flex-end; justify-content: center; }
+.detail-overlay.open { display: flex; }
+@media(min-width:600px){ .detail-overlay { align-items: center; padding: 16px; } .detail-sheet { border-radius: 6px !important; max-height: 88vh; } }
+.detail-sheet { background: var(--surface); border-radius: 12px 12px 0 0; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
+.detail-hdr { padding: 15px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.detail-body { padding: 14px 18px; }
+.d-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.d-row:last-child { border: none; }
+.d-k { color: var(--text2); font-size: 12px; }
+.d-v { font-size: 13px; font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
+.d-mono { font-family: 'DM Mono', monospace; color: var(--accent); }
+.detail-actions { padding: 0 18px 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── AUDIT LOG ── */
+.log-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 14px; margin-bottom: 7px; }
+.log-top { display: flex; justify-content: space-between; align-items: center; }
+.log-action { font-size: 12px; font-weight: 600; }
+.log-action.in { color: var(--green); }
+.log-action.out { color: var(--red); }
+.log-action.edit { color: var(--yellow); }
+.log-action.login { color: var(--blue); }
+.log-time { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.log-user { font-size: 11px; color: var(--text2); margin-top: 3px; }
+.log-detail { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+/* ── USERS TABLE ── */
+.user-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+.u-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.u-info { flex: 1; }
+.u-name { font-weight: 600; font-size: 13px; }
+.u-email { font-size: 11px; color: var(--text2); }
+.u-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* ── LABEL ── */
+.label-preview-wrap { background: var(--bg); border: 1.5px dashed var(--border); border-radius: var(--r); padding: 20px; display: flex; justify-content: center; margin: 14px 0; }
+.label-card { background: #fff; border: 1.5px solid #222; border-radius: 4px; width: 260px; padding: 10px 12px 8px; font-family: 'DM Mono', monospace; box-shadow: 2px 2px 0 #ccc; }
+.label-company { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 4px; color: #111; line-height: 1; border-bottom: 1.5px solid #111; padding-bottom: 5px; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: baseline; }
+.label-company small { font-size: 9px; letter-spacing: 2px; font-family: 'DM Mono', monospace; color: #555; }
+.label-serial-text { text-align: center; font-size: 11px; letter-spacing: 1.5px; color: #333; margin-top: 3px; }
+.label-info { margin-top: 7px; border-top: 1px dashed #ccc; padding-top: 6px; }
+.label-row { display: flex; justify-content: space-between; font-size: 9px; color: #444; margin-top: 2px; }
+.label-row span:first-child { color: #888; }
+
+/* ── SCANNER MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 300; align-items: center; justify-content: center; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: 8px; width: 100%; max-width: 420px; overflow: hidden; }
+.modal-hdr { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.modal-title { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 2px; color: var(--text2); }
+#scanner-container { position: relative; width: 100%; height: 260px; background: #000; overflow: hidden; }
+#scanner-container video { width: 100%; height: 100%; object-fit: cover; }
+#scanner-container canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.scan-frame { width: 200px; height: 80px; border: 2px solid #fff; border-radius: 4px; box-shadow: 0 0 0 2000px rgba(0,0,0,.4); position: relative; }
+.scan-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--red); animation: sl 1.8s linear infinite; box-shadow: 0 0 8px var(--red); }
+@keyframes sl { 0%,100%{top:0} 50%{top:calc(100% - 2px)} }
+.scan-hint { padding: 10px 16px; text-align: center; color: var(--text2); font-size: 12px; }
+.scan-manual { padding: 0 16px 14px; display: flex; gap: 8px; }
+.scan-manual input { flex: 1; font-family: 'DM Mono', monospace; }
+.close-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 18px; }
+
+/* ── SELL MODAL ── */
+.sell-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ── SERIAL PREVIEW ── */
+.serial-preview { background: var(--bg); border: 1.5px dashed var(--border); border-radius: var(--r); padding: 12px 16px; margin-top: 12px; }
+.serial-code { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; color: var(--accent); letter-spacing: 2px; }
+.serial-hint { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--accent); color: #fff; padding: 10px 22px; border-radius: 4px; font-size: 13px; font-weight: 600; opacity: 0; transition: all .25s; z-index: 400; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.empty { text-align: center; padding: 32px 20px; color: var(--text3); }
+.empty-icon { font-size: 36px; margin-bottom: 10px; }
+
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── USER MENU ── */
+.user-menu { position: absolute; top: 60px; right: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: 0 4px 20px rgba(0,0,0,.15); z-index: 200; min-width: 200px; overflow: hidden; display: none; }
+.user-menu.open { display: block; }
+.um-header { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.um-name { font-weight: 600; font-size: 13px; }
+.um-email { font-size: 11px; color: var(--text2); }
+.um-role { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--text3); margin-top: 2px; }
+.um-item { padding: 10px 14px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: background .15s; }
+.um-item:hover { background: var(--bg); }
+
+/* ── WARRANTY BAR ── */
+.bar-track { background: var(--bg); height: 4px; border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.bar-fill { height: 100%; border-radius: 2px; }
+
+/* PRINT */
+@media print {
+  body > *:not(#print-area) { display: none !important; }
+  #print-area { display: block !important; }
+  .label-print-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 4mm; padding: 8mm; }
+}
+#print-area { display: none; }
+
+.section-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.section-hdr h3 { font-size: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">GD AUDIO</div>
+    <div class="login-sub">庫存保固系統</div>
+
+    <!-- Google Sign-In Button -->
+    <div id="g_id_onload"
+      data-client_id="YOUR_GOOGLE_CLIENT_ID"
+      data-callback="handleGoogleLogin"
+      data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin"
+      data-type="standard"
+      data-size="large"
+      data-theme="outline"
+      data-text="sign_in_with"
+      data-shape="rectangular"
+      data-logo_alignment="left"
+      data-width="280">
+    </div>
+
+    <div class="login-divider">或使用帳號登入</div>
+
+    <div class="login-manual">
+      <input type="email" id="login-email" placeholder="帳號 (Email)" autocomplete="email">
+      <input type="password" id="login-pw" placeholder="密碼" onkeydown="if(event.key==='Enter')manualLogin()">
+      <div class="login-err" id="login-err">帳號或密碼錯誤</div>
+      <button class="btn btn-primary" onclick="manualLogin()" id="btn-login">登入</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════ -->
+<div id="app" style="display:none">
+  <header>
+    <div class="logo">GD AUDIO</div>
+    <div class="user-chip" onclick="toggleUserMenu()">
+      <div class="user-avatar" id="hdr-avatar">?</div>
+      <span class="user-name" id="hdr-name">載入中</span>
+      <span class="role-tag" id="hdr-role"></span>
+    </div>
+  </header>
+
+  <!-- User Menu Dropdown -->
+  <div class="user-menu" id="user-menu">
+    <div class="um-header">
+      <div class="um-name" id="um-name"></div>
+      <div class="um-email" id="um-email"></div>
+      <div class="um-role" id="um-role-label"></div>
+    </div>
+    <div class="um-item" onclick="switchTab('audit')">📋 操作紀錄</div>
+    <div class="um-item" onclick="logout()">🚪 登出</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dash')">📊 總覽</div>
+    <div class="tab" onclick="switchTab('stock-in')">📥 入庫</div>
+    <div class="tab" onclick="switchTab('stock-out')">📤 出庫</div>
+    <div class="tab" onclick="switchTab('list')">📋 庫存</div>
+    <div class="tab" onclick="switchTab('label')">🏷 貼紙</div>
+    <div class="tab admin-only hidden" onclick="switchTab('users')">👥 人員</div>
+    <div class="tab admin-only hidden" onclick="switchTab('audit')">🔍 Log</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="panel active" id="tab-dash">
+    <div class="stats-row">
+      <div class="stat"><div class="stat-num" id="s-total" style="color:var(--accent)">0</div><div class="stat-label">總庫存</div></div>
+      <div class="stat"><div class="stat-num" id="s-stock" style="color:var(--green)">0</div><div class="stat-label">未售</div></div>
+      <div class="stat"><div class="stat-num" id="s-sold" style="color:var(--yellow)">0</div><div class="stat-label">已售</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚠ 保固即將到期（90天內）</div>
+      <div id="dash-exp"><div class="empty"><div class="empty-icon">✅</div><p>無即將到期項目</p></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🕐 最近操作</div>
+      <div id="dash-recent"><div class="empty"><div class="empty-icon">📦</div><p>尚無紀錄</p></div></div>
+    </div>
+  </div>
+
+  <!-- STOCK IN -->
+  <div class="panel" id="tab-stock-in">
+    <div class="card">
+      <div class="card-title">📥 產品入庫</div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>原廠序號（外盒條碼）</label>
+          <div class="scan-row">
+            <input type="text" id="f-orig" placeholder="掃描或手動輸入" autocomplete="off">
+            <button class="btn btn-scan" onclick="openScanner('f-orig')">📷</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>產品型號</label>
+          <select id="f-model" onchange="updateStockPreview()">
+            <option value="">請選擇...</option>
+            <optgroup label="麥克風">
+              <option>SM58</option><option>SM57</option><option>SM7B</option><option>SM86</option>
+              <option>BETA58A</option><option>BETA57A</option><option>BETA87A</option>
+              <option>KSM32</option><option>KSM44A</option><option>MV7</option><option>MV88</option>
+            </optgroup>
+            <optgroup label="無線系統">
+              <option>ULXD4</option><option>ULXD2</option><option>BLX288</option><option>BLX24</option><option>GLX-D16</option>
+            </optgroup>
+            <optgroup label="耳機/監聽">
+              <option>SE215</option><option>SE425</option><option>SE535</option><option>SE846</option>
+              <option>SRH440</option><option>SRH840</option><option>AONIC50</option>
+            </optgroup>
+            <optgroup label="會議系統">
+              <option>MXA310</option><option>MXA710</option><option>MXA910</option>
+            </optgroup>
+            <option value="__other__">其他</option>
+          </select>
+        </div>
+        <div class="form-group" id="model-other-wrap" style="display:none">
+          <label>自訂型號</label>
+          <input type="text" id="f-model-custom" oninput="updateStockPreview()">
+        </div>
+        <div class="form-group">
+          <label>入庫日期</label>
+          <input type="date" id="f-indate" onchange="updateStockPreview()">
+        </div>
+        <div class="form-group">
+          <label>數量</label>
+          <input type="number" id="f-qty" value="1" min="1" max="100">
+        </div>
+        <div class="form-group">
+          <label>保固年限</label>
+          <select id="f-warranty"><option value="1">1 年</option><option value="2" selected>2 年</option><option value="3">3 年</option></select>
+        </div>
+        <div class="form-group">
+          <label>進貨成本（選填）</label>
+          <input type="number" id="f-cost" placeholder="NT$">
+        </div>
+        <div class="form-group full">
+          <label>備註</label>
+          <input type="text" id="f-note" placeholder="批次、特殊規格...">
+        </div>
+      </div>
+      <div class="serial-preview">
+        <div class="serial-code" id="preview-serial">GDA-????-????-????</div>
+        <div class="serial-hint">系統自動產生 · 公司代碼-年月-型號-流水號</div>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-save-in" onclick="saveStockIn()">📥 確認入庫</button>
+    </div>
+  </div>
+
+  <!-- STOCK OUT -->
+  <div class="panel" id="tab-stock-out">
+    <!-- Mode Toggle -->
+    <div class="mode-toggle">
+      <div class="mode-btn active" id="mode-full" onclick="setOutMode('full')">📋 完整出庫（填客戶資料）</div>
+      <div class="mode-btn" id="mode-quick" onclick="setOutMode('quick')">⚡ 快速出庫（掃碼即出）</div>
+    </div>
+
+    <!-- Full mode -->
+    <div id="out-full">
+      <div class="card">
+        <div class="card-title">📤 出庫 — 完整模式</div>
+        <div class="form-group full" style="margin-bottom:12px">
+          <label>掃描內部序號</label>
+          <div class="scan-row">
+            <input type="text" id="out-serial" placeholder="掃描貼紙上的條碼" autocomplete="off" oninput="lookupSerial()">
+            <button class="btn btn-scan" onclick="openScanner('out-serial')">📷</button>
+          </div>
+        </div>
+        <div class="scan-result" id="scan-result-box">
+          <div class="sr-serial" id="sr-serial"></div>
+          <div class="sr-model" id="sr-model"></div>
+        </div>
+        <div id="out-form-fields" style="display:none">
+          <div class="form-grid" style="margin-top:12px">
+            <div class="form-group">
+              <label>客戶姓名 *</label>
+              <input type="text" id="out-name" placeholder="王小明">
+            </div>
+            <div class="form-group">
+              <label>聯絡電話</label>
+              <input type="tel" id="out-phone" placeholder="0912-345-678">
+            </div>
+            <div class="form-group full">
+              <label>Email</label>
+              <input type="email" id="out-email" placeholder="customer@email.com">
+            </div>
+            <div class="form-group">
+              <label>銷售日期</label>
+              <input type="date" id="out-date">
+            </div>
+            <div class="form-group">
+              <label>發票號碼</label>
+              <input type="text" id="out-invoice" placeholder="AB12345678">
+            </div>
+            <div class="form-group full">
+              <label>備註</label>
+              <input type="text" id="out-note-sell" placeholder="選填">
+            </div>
+          </div>
+          <button class="btn btn-red btn-full" id="btn-out-full" onclick="confirmOutFull()">📤 確認出庫</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick mode -->
+    <div id="out-quick" style="display:none">
+      <div class="card">
+        <div class="card-title">⚡ 快速出庫 — 掃碼即出貨</div>
+        <div style="background:var(--bg);border-radius:var(--r);padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
+          掃碼後直接標記為已售出，出貨人記錄為 <strong id="quick-operator">目前登入者</strong>。<br>
+          適合現場快速出貨，客戶資料可事後補登。
+        </div>
+        <div class="form-group full" style="margin-bottom:12px">
+          <label>掃描內部序號</label>
+          <div class="scan-row">
+            <input type="text" id="quick-serial" placeholder="掃描或輸入序號" autocomplete="off" oninput="quickLookup()">
+            <button class="btn btn-scan" onclick="openScanner('quick-serial')">📷</button>
+          </div>
+        </div>
+        <div class="scan-result" id="quick-result-box">
+          <div class="sr-serial" id="quick-sr-serial"></div>
+          <div class="sr-model" id="quick-sr-model"></div>
+        </div>
+        <button class="btn btn-red btn-full" id="btn-out-quick" onclick="confirmQuickOut()" style="display:none">⚡ 快速出庫</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">今日快速出庫紀錄</div>
+        <div id="quick-today-list"><div class="empty"><p>尚無今日快速出庫</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIST -->
+  <div class="panel" id="tab-list">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" placeholder="搜尋序號、型號、客戶..." oninput="renderList()">
+    </div>
+    <div class="filter-row">
+      <button class="chip active" data-f="all" onclick="setChip(this)">全部</button>
+      <button class="chip" data-f="stock" onclick="setChip(this)">未售</button>
+      <button class="chip" data-f="sold" onclick="setChip(this)">已售</button>
+      <button class="chip" data-f="warn" onclick="setChip(this)">即將到期</button>
+      <button class="chip" data-f="exp" onclick="setChip(this)">已到期</button>
+    </div>
+    <div id="rec-list" class="rec-list"></div>
+  </div>
+
+  <!-- LABEL -->
+  <div class="panel" id="tab-label">
+    <div class="card">
+      <div class="card-title">🏷 選擇品項</div>
+      <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="label-search" placeholder="搜尋序號或型號..." oninput="renderLabelList()"></div>
+      <div id="label-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" style="font-size:12px" onclick="selectAllLabels()">全選</button>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="clearLabelSel()">清除</button>
+        <span id="label-count" style="font-size:12px;color:var(--text2);margin-left:auto">已選 0 件</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">貼紙預覽</div>
+      <div class="label-preview-wrap">
+        <div class="label-card">
+          <div class="label-company">GD AUDIO <small>AUTHORIZED</small></div>
+          <svg id="preview-barcode"></svg>
+          <div class="label-serial-text" id="preview-serial-text">GDA-2506-SM58-0001</div>
+          <div class="label-info">
+            <div class="label-row"><span>MODEL</span><span id="lp-model">-</span></div>
+            <div class="label-row"><span>IN DATE</span><span id="lp-date">-</span></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="printLabels()">🖨 列印貼紙</button>
+    </div>
+  </div>
+
+  <!-- USERS (Admin only) -->
+  <div class="panel" id="tab-users">
+    <div class="section-hdr">
+      <h3>👥 使用者管理</h3>
+      <button class="btn btn-primary" onclick="openAddUser()">+ 新增</button>
+    </div>
+    <div id="user-list"></div>
+  </div>
+
+  <!-- AUDIT LOG (Admin only) -->
+  <div class="panel" id="tab-audit">
+    <div class="section-hdr">
+      <h3>🔍 操作記錄</h3>
+      <select id="audit-filter" onchange="renderAuditLog()" style="width:auto;font-size:12px;padding:6px 10px">
+        <option value="all">全部操作</option>
+        <option value="IN">入庫</option>
+        <option value="OUT">出庫</option>
+        <option value="LOGIN">登入</option>
+        <option value="EDIT">修改</option>
+      </select>
+    </div>
+    <div id="audit-list"></div>
+  </div>
+</div>
+
+<!-- ═══ SCANNER MODAL ═══ -->
+<div class="modal-overlay" id="scanner-modal">
+  <div class="modal">
+    <div class="modal-hdr"><span class="modal-title">📷 SCAN</span><button class="close-btn" onclick="closeScanner()">✕</button></div>
+    <div id="scanner-container"><div class="scan-overlay"><div class="scan-frame"><div class="scan-line"></div></div></div></div>
+    <div class="scan-hint">將條碼對準框內，自動辨識</div>
+    <div class="scan-manual">
+      <input type="text" id="manual-input" placeholder="或手動輸入按 Enter" onkeydown="if(event.key==='Enter')confirmManual()">
+      <button class="btn btn-primary" onclick="confirmManual()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DETAIL SHEET ═══ -->
+<div class="detail-overlay" id="detail-overlay">
+  <div class="detail-sheet">
+    <div class="detail-hdr">
+      <div><div style="font-weight:700;font-size:15px" id="d-title"></div><div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px" id="d-serial"></div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="badge" id="d-badge"></span><button class="close-btn" onclick="closeDetail()">✕</button></div>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+    <div class="detail-actions" id="detail-actions"></div>
+  </div>
+</div>
+
+<!-- ═══ ADD USER MODAL ═══ -->
+<div class="modal-overlay" id="add-user-modal">
+  <div class="modal">
+    <div class="modal-hdr"><span class="modal-title">新增使用者</span><button class="close-btn" onclick="closeAddUser()">✕</button></div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+      <div class="form-group"><label>姓名</label><input type="text" id="nu-name" placeholder="王小明"></div>
+      <div class="form-group"><label>Email（登入帳號）</label><input type="email" id="nu-email" placeholder="sales@gdaudio.com"></div>
+      <div class="form-group"><label>密碼（手動登入用）</label><input type="password" id="nu-pw" placeholder="至少 8 字元"></div>
+      <div class="form-group"><label>角色</label>
+        <select id="nu-role">
+          <option value="admin">Admin（管理員）</option>
+          <option value="staff" selected>Staff（業務）</option>
+          <option value="viewer">Viewer（唯讀）</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="addUser()">新增使用者</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT AREA -->
+<div id="print-area"><div class="label-print-grid" id="print-grid"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONFIG — 填入你的 Google Apps Script URL
+// ═══════════════════════════════════════════
+const CONFIG = {
+  SHEET_URL: localStorage.getItem('gda_sheet_url') || '',
+  COMPANY: 'GDA',
+  GOOGLE_CLIENT_ID: 'YOUR_GOOGLE_CLIENT_ID' // 設定好後填入
+};
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let currentUser = null; // { name, email, role, avatar }
+let records = JSON.parse(localStorage.getItem('gda_records') || '[]');
+let auditLog = JSON.parse(localStorage.getItem('gda_audit') || '[]');
+let users = JSON.parse(localStorage.getItem('gda_users') || '[]');
+let currentFilter = 'all';
+let scanTarget = null;
+let quaggaRunning = false;
+let currentDetailId = null;
+let labelSelected = new Set();
+let outMode = 'full';
+let quickFoundSerial = null;
+let outFoundSerial = null;
+
+// ═══════════════════════════════════════════
+// GOOGLE LOGIN
+// ═══════════════════════════════════════════
+function handleGoogleLogin(response) {
+  // Decode JWT from Google
+  const payload = parseJwt(response.credential);
+  const email = payload.email;
+  const name = payload.name;
+  const avatar = payload.picture;
+
+  // Check if user is authorized
+  checkUserAccess(email, name, avatar, 'google');
+}
+
+async function checkUserAccess(email, name, avatar, method) {
+  // First check local users list
+  const found = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (found) {
+    loginSuccess({ ...found, avatar, name: found.name || name });
+    return;
+  }
+
+  // Try sheet
+  if (CONFIG.SHEET_URL) {
+    try {
+      const res = await api({ action: 'getUser', email });
+      if (res.ok && res.user) {
+        loginSuccess({ ...res.user, avatar });
+        return;
+      }
+    } catch(e) {}
+  }
+
+  // First ever login = auto admin
+  if (users.length === 0 && records.length === 0) {
+    const adminUser = { email, name, role: 'admin', createdAt: now(), method };
+    users.push(adminUser);
+    saveLocal();
+    if (CONFIG.SHEET_URL) { try { await api({ action: 'addUser', ...adminUser }); } catch(e) {} }
+    loginSuccess({ ...adminUser, avatar });
+    return;
+  }
+
+  showLoginErr('此 Email 尚未獲得授權，請聯絡管理員');
+}
+
+async function manualLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  if (!email || !pw) { showLoginErr('請輸入帳號和密碼'); return; }
+
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 驗證中...';
+
+  // Check local
+  const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === hashPw(pw));
+
+  if (found) {
+    loginSuccess(found);
+  } else if (CONFIG.SHEET_URL) {
+    try {
+      const res = await api({ action: 'loginManual', email, password: hashPw(pw) });
+      if (res.ok && res.user) { loginSuccess(res.user); return; }
+    } catch(e) {}
+    showLoginErr('帳號或密碼錯誤');
+  } else {
+    showLoginErr('帳號或密碼錯誤');
+  }
+
+  btn.disabled = false; btn.innerHTML = '登入';
+}
+
+function loginSuccess(user) {
+  currentUser = user;
+  sessionStorage.setItem('gda_session', JSON.stringify(user));
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('login-err').style.display = 'none';
+
+  // Update header
+  document.getElementById('hdr-name').textContent = user.name || user.email.split('@')[0];
+  document.getElementById('hdr-role').textContent = roleLabel(user.role);
+  document.getElementById('um-name').textContent = user.name || '';
+  document.getElementById('um-email').textContent = user.email;
+  document.getElementById('um-role-label').textContent = roleLabel(user.role);
+  document.getElementById('quick-operator').textContent = user.name || user.email;
+
+  const av = document.getElementById('hdr-avatar');
+  if (user.avatar) { av.innerHTML = `<img src="${user.avatar}" alt="">`; }
+  else { av.textContent = (user.name||user.email)[0].toUpperCase(); }
+
+  // Show admin tabs
+  if (user.role === 'admin') {
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+  }
+
+  // Log login
+  addLog('LOGIN', `登入系統`, user);
+
+  // Sync
+  if (CONFIG.SHEET_URL) syncFromSheet();
+  renderDash(); renderList(); renderLabelList();
+  document.getElementById('f-indate').value = today();
+  document.getElementById('out-date').value = today();
+  updatePreviewBarcode('GDA-2506-SM58-0001');
+}
+
+function showLoginErr(msg) {
+  const el = document.getElementById('login-err');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function logout() {
+  addLog('LOGIN', '登出系統', currentUser);
+  currentUser = null;
+  sessionStorage.removeItem('gda_session');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('user-menu').classList.remove('open');
+}
+
+function toggleUserMenu() {
+  document.getElementById('user-menu').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.user-chip') && !e.target.closest('.user-menu'))
+    document.getElementById('user-menu').classList.remove('open');
+});
+
+function roleLabel(r) {
+  return { admin:'管理員', staff:'業務', viewer:'唯讀' }[r] || r;
+}
+
+// ═══════════════════════════════════════════
+// STOCK IN
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('f-model').addEventListener('change', function() {
+    document.getElementById('model-other-wrap').style.display = this.value==='__other__' ? '' : 'none';
+    updateStockPreview();
+  });
+  document.getElementById('f-orig').addEventListener('input', updateStockPreview);
+
+  // Check existing session
+  const saved = sessionStorage.getItem('gda_session');
+  if (saved) { try { loginSuccess(JSON.parse(saved)); } catch(e) {} }
+});
+
+function updateStockPreview() {
+  const modelSel = document.getElementById('f-model').value;
+  const model = modelSel==='__other__' ? document.getElementById('f-model-custom').value : modelSel;
+  const date = document.getElementById('f-indate').value;
+  const ymStr = ym(date);
+  const mCode = modelCode(model||'????');
+  document.getElementById('preview-serial').textContent = `${CONFIG.COMPANY}-${ymStr}-${mCode}-????`;
+}
+
+async function saveStockIn() {
+  if (!canEdit()) return;
+  const modelSel = document.getElementById('f-model').value;
+  const model = modelSel==='__other__' ? document.getElementById('f-model-custom').value.trim() : modelSel;
+  const origSerial = document.getElementById('f-orig').value.trim();
+  const inDate = document.getElementById('f-indate').value;
+  const qty = parseInt(document.getElementById('f-qty').value)||1;
+  const warrantyYears = parseInt(document.getElementById('f-warranty').value);
+  const cost = document.getElementById('f-cost').value;
+  const note = document.getElementById('f-note').value.trim();
+
+  if (!model) { showToast('⚠ 請選擇型號'); return; }
+  if (!inDate) { showToast('⚠ 請選擇日期'); return; }
+
+  const btn = document.getElementById('btn-save-in');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 入庫中...';
+
+  const ymStr = ym(inDate);
+  const mCode = modelCode(model);
+  const expDate = warrantyExpiry(inDate, warrantyYears);
+
+  try {
+    let counter = await getNextCounter(ymStr, mCode);
+    const newRecs = [];
+
+    for (let i = 0; i < qty; i++) {
+      const serial = buildSerial(ymStr, mCode, counter + i);
+      const rec = {
+        id: serial, internalSerial: serial,
+        originalSerial: origSerial + (qty>1?`-${i+1}`:''),
+        model, inDate, warrantyYears, warrantyExpiry: expDate,
+        status: 'stock',
+        customerName:'', customerPhone:'', customerEmail:'',
+        saleDate:'', invoice:'',
+        cost, note,
+        createdBy: currentUser.email,
+        createdByName: currentUser.name || currentUser.email,
+        createdAt: new Date().toISOString()
+      };
+      newRecs.push(rec);
+      records.push(rec);
+      if (CONFIG.SHEET_URL) { try { await api({ action:'add', ...rec }); } catch(e){} }
+    }
+
+    await setCounter(ymStr, mCode, counter + qty - 1);
+    addLog('IN', `入庫 ${qty} 件 ${model}，序號 ${newRecs[0].internalSerial}${qty>1?' ~ '+newRecs[qty-1].internalSerial:''}`, currentUser, newRecs[0].internalSerial);
+    saveLocal(); renderDash();
+    newRecs.forEach(r => labelSelected.add(r.id));
+    showToast(`✅ 入庫成功 ${qty} 件`);
+    clearStockForm();
+    setTimeout(() => switchTab('label'), 900);
+  } catch(e) { showToast('❌ 失敗：'+e.message); }
+
+  btn.disabled = false; btn.innerHTML = '📥 確認入庫';
+}
+
+function clearStockForm() {
+  ['f-orig','f-model-custom','f-cost','f-note'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('f-model').value='';
+  document.getElementById('f-qty').value='1';
+  document.getElementById('f-indate').value=today();
+  document.getElementById('preview-serial').textContent=`${CONFIG.COMPANY}-????-????-????`;
+}
+
+// ═══════════════════════════════════════════
+// STOCK OUT
+// ═══════════════════════════════════════════
+function setOutMode(mode) {
+  outMode = mode;
+  document.getElementById('mode-full').classList.toggle('active', mode==='full');
+  document.getElementById('mode-quick').classList.toggle('active', mode==='quick');
+  document.getElementById('out-full').style.display = mode==='full' ? '' : 'none';
+  document.getElementById('out-quick').style.display = mode==='quick' ? '' : 'none';
+}
+
+function lookupSerial() {
+  const serial = document.getElementById('out-serial').value.trim().toUpperCase();
+  const rec = records.find(r => r.internalSerial.toUpperCase()===serial);
+  const box = document.getElementById('scan-result-box');
+  const fields = document.getElementById('out-form-fields');
+  outFoundSerial = null;
+
+  if (rec && rec.status==='stock') {
+    document.getElementById('sr-serial').textContent = rec.internalSerial;
+    document.getElementById('sr-model').textContent = `${rec.model}｜入庫：${rec.inDate}｜保固到：${rec.warrantyExpiry}`;
+    box.classList.add('visible');
+    fields.style.display = '';
+    outFoundSerial = rec.id;
+  } else if (rec && rec.status==='sold') {
+    document.getElementById('sr-serial').textContent = '⚠ 此序號已出庫';
+    document.getElementById('sr-model').textContent = `售出給：${rec.customerName}｜日期：${rec.saleDate}`;
+    box.classList.add('visible'); fields.style.display='none';
+  } else if (serial.length > 5) {
+    document.getElementById('sr-serial').textContent = '找不到此序號';
+    document.getElementById('sr-model').textContent = '請確認序號是否正確';
+    box.classList.add('visible'); fields.style.display='none';
+  } else {
+    box.classList.remove('visible'); fields.style.display='none';
+  }
+}
+
+async function confirmOutFull() {
+  if (!canEdit()) return;
+  if (!outFoundSerial) { showToast('⚠ 請先掃描序號'); return; }
+  const name = document.getElementById('out-name').value.trim();
+  if (!name) { showToast('⚠ 請輸入客戶姓名'); return; }
+
+  const btn = document.getElementById('btn-out-full');
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span> 出庫中...';
+
+  const rec = records.find(r=>r.id===outFoundSerial);
+  if (rec) {
+    rec.status='sold';
+    rec.customerName=name;
+    rec.customerPhone=document.getElementById('out-phone').value.trim();
+    rec.customerEmail=document.getElementById('out-email').value.trim();
+    rec.saleDate=document.getElementById('out-date').value;
+    rec.invoice=document.getElementById('out-invoice').value.trim();
+    rec.note=(rec.note?rec.note+' | ':'')+document.getElementById('out-note-sell').value.trim();
+    rec.soldBy=currentUser.email;
+    rec.soldByName=currentUser.name||currentUser.email;
+    rec.soldAt=new Date().toISOString();
+
+    if (CONFIG.SHEET_URL) { try { await api({ action:'sell', ...rec }); } catch(e){} }
+    addLog('OUT', `出庫 ${rec.model} → ${name}，序號 ${rec.internalSerial}`, currentUser, rec.internalSerial);
+    saveLocal(); renderDash(); renderList();
+
+    document.getElementById('out-serial').value='';
+    document.getElementById('out-name').value='';
+    document.getElementById('out-phone').value='';
+    document.getElementById('out-email').value='';
+    document.getElementById('out-invoice').value='';
+    document.getElementById('out-note-sell').value='';
+    document.getElementById('scan-result-box').classList.remove('visible');
+    document.getElementById('out-form-fields').style.display='none';
+    outFoundSerial=null;
+    showToast(`✅ 出庫成功 → ${name}`);
+  }
+
+  btn.disabled=false; btn.innerHTML='📤 確認出庫';
+}
+
+// Quick out
+function quickLookup() {
+  const serial = document.getElementById('quick-serial').value.trim().toUpperCase();
+  const rec = records.find(r=>r.internalSerial.toUpperCase()===serial);
+  const box = document.getElementById('quick-result-box');
+  const btn = document.getElementById('btn-out-quick');
+  quickFoundSerial=null;
+
+  if (rec && rec.status==='stock') {
+    document.getElementById('quick-sr-serial').textContent=rec.internalSerial;
+    document.getElementById('quick-sr-model').textContent=`${rec.model}｜${rec.inDate}`;
+    box.classList.add('visible'); btn.style.display='';
+    quickFoundSerial=rec.id;
+  } else if (rec) {
+    document.getElementById('quick-sr-serial').textContent='⚠ 已出庫';
+    document.getElementById('quick-sr-model').textContent=`售出給：${rec.customerName}`;
+    box.classList.add('visible'); btn.style.display='none';
+  } else {
+    box.classList.remove('visible'); btn.style.display='none';
+  }
+}
+
+async function confirmQuickOut() {
+  if (!canEdit()||!quickFoundSerial) return;
+  const rec=records.find(r=>r.id===quickFoundSerial);
+  if (!rec) return;
+
+  rec.status='sold';
+  rec.saleDate=today();
+  rec.soldBy=currentUser.email;
+  rec.soldByName=currentUser.name||currentUser.email;
+  rec.soldAt=new Date().toISOString();
+  rec.customerName=`快速出庫（${rec.soldByName}）`;
+
+  if (CONFIG.SHEET_URL) { try { await api({ action:'sell', ...rec }); } catch(e){} }
+  addLog('OUT', `⚡快速出庫 ${rec.model}，序號 ${rec.internalSerial}`, currentUser, rec.internalSerial);
+  saveLocal(); renderDash(); renderList(); renderTodayQuick();
+
+  document.getElementById('quick-serial').value='';
+  document.getElementById('quick-result-box').classList.remove('visible');
+  document.getElementById('btn-out-quick').style.display='none';
+  quickFoundSerial=null;
+  showToast(`⚡ 出庫完成：${rec.model}`);
+}
+
+function renderTodayQuick() {
+  const todayRecs = records.filter(r => r.status==='sold' && r.saleDate===today() && (r.customerName||'').includes('快速出庫'));
+  const el=document.getElementById('quick-today-list');
+  if (!todayRecs.length) { el.innerHTML='<div class="empty"><p>尚無今日快速出庫</p></div>'; return; }
+  el.innerHTML=todayRecs.map(r=>`<div class="rec-item" onclick="openDetail('${r.id}')">
+    <div class="rec-top"><div><div class="rec-name">${r.model}</div><div class="rec-model">${r.soldByName||''} 出貨</div></div><span class="badge b-sold">已出庫</span></div>
+    <div class="rec-serial">${r.internalSerial}</div>
+    <div class="rec-bottom"><span class="rec-meta"><strong>時間</strong> ${r.soldAt?new Date(r.soldAt).toLocaleTimeString('zh-TW'):'-'}</span></div>
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════
+function renderDash() {
+  document.getElementById('s-total').textContent=records.length;
+  document.getElementById('s-stock').textContent=records.filter(r=>r.status==='stock').length;
+  document.getElementById('s-sold').textContent=records.filter(r=>r.status==='sold').length;
+
+  const expiring=records.filter(r=>r.status==='sold'&&wStatus(r).s==='warn').sort((a,b)=>new Date(a.warrantyExpiry)-new Date(b.warrantyExpiry)).slice(0,5);
+  document.getElementById('dash-exp').innerHTML=expiring.length?expiring.map(r=>recCard(r)).join(''):'<div class="empty"><div class="empty-icon">✅</div><p>無即將到期</p></div>';
+
+  const recent=auditLog.slice(-6).reverse();
+  document.getElementById('dash-recent').innerHTML=recent.length?recent.map(l=>`
+    <div class="log-item">
+      <div class="log-top"><span class="log-action ${l.type.toLowerCase()}">${{IN:'📥 入庫',OUT:'📤 出庫',LOGIN:'🔑 登入',EDIT:'✏ 修改'}[l.type]||l.type}</span><span class="log-time">${fmtTime(l.ts)}</span></div>
+      <div class="log-user">👤 ${l.userName||l.userEmail}</div>
+      <div class="log-detail">${l.detail}</div>
+    </div>`).join(''):'<div class="empty"><div class="empty-icon">📋</div><p>尚無操作紀錄</p></div>';
+}
+
+// ═══════════════════════════════════════════
+// LIST
+// ═══════════════════════════════════════════
+function setChip(el) {
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); currentFilter=el.dataset.f; renderList();
+}
+
+function renderList() {
+  const q=(document.getElementById('search-input').value||'').toLowerCase();
+  let filtered=records.filter(r=>{
+    const m=!q||[r.internalSerial,r.originalSerial,r.model,r.customerName,r.customerPhone,r.soldByName].join(' ').toLowerCase().includes(q);
+    if(!m) return false;
+    if(currentFilter==='all') return true;
+    if(currentFilter==='stock') return r.status==='stock';
+    if(currentFilter==='sold') return r.status==='sold';
+    const ws=wStatus(r);
+    if(currentFilter==='warn') return ws.s==='warn';
+    if(currentFilter==='exp') return ws.s==='exp';
+    return true;
+  }).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+  const el=document.getElementById('rec-list');
+  el.innerHTML=filtered.length?filtered.map(r=>recCard(r)).join(''):'<div class="empty"><div class="empty-icon">🔍</div><p>沒有符合的紀錄</p></div>';
+}
+
+function recCard(r) {
+  const ws=wStatus(r);
+  const bc={stock:'b-stock',sold:'b-sold',ok:'b-ok',warn:'b-warn',exp:'b-exp'}[ws.s];
+  return `<div class="rec-item" onclick="openDetail('${r.id}')">
+    <div class="rec-top">
+      <div><div class="rec-name">${r.customerName||r.model}</div><div class="rec-model">${r.model}${r.soldByName?' · 出貨：'+r.soldByName:''}</div></div>
+      <span class="badge ${bc}">${ws.label}</span>
+    </div>
+    <div class="rec-serial">${r.internalSerial}</div>
+    <div class="rec-bottom">
+      <span class="rec-meta"><strong>入庫</strong> ${r.inDate}</span>
+      ${r.status==='sold'?`<span class="rec-meta"><strong>售出</strong> ${r.saleDate||'-'}</span>`:''}
+      <span class="rec-meta"><strong>保固到</strong> ${r.warrantyExpiry}</span>
+      ${r.createdByName?`<span class="rec-meta"><strong>入庫者</strong> ${r.createdByName}</span>`:''}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════
+// DETAIL
+// ═══════════════════════════════════════════
+function openDetail(id) {
+  const r=records.find(x=>x.id===id);
+  if(!r) return;
+  currentDetailId=id;
+  const ws=wStatus(r);
+  const bc={stock:'b-stock',sold:'b-sold',ok:'b-ok',warn:'b-warn',exp:'b-exp'}[ws.s];
+  document.getElementById('d-title').textContent=r.customerName||r.model;
+  document.getElementById('d-serial').textContent=r.internalSerial;
+  const badge=document.getElementById('d-badge');
+  badge.className=`badge ${bc}`; badge.textContent=ws.label;
+
+  const pct=r.status==='sold'?Math.min(100,Math.max(0,(Math.floor((new Date()-new Date(r.inDate))/86400000)/(r.warrantyYears*365))*100)):0;
+  const barColor={ok:'var(--green)',warn:'var(--yellow)',exp:'var(--red)',stock:'#ccc'}[ws.s];
+
+  const rows=[
+    ['內部序號',`<span class="d-mono">${r.internalSerial}</span>`],
+    ['原廠序號',r.originalSerial||'-'],
+    ['型號',r.model],
+    ['入庫日期',r.inDate],
+    ['入庫者',r.createdByName||'-'],
+    ['保固年限',r.warrantyYears+' 年'],
+    ['保固到期',r.warrantyExpiry],
+    ['狀態',r.status==='stock'?'庫存中':'已售出'],
+    ['客戶姓名',r.customerName||'-'],
+    ['聯絡電話',r.customerPhone||'-'],
+    ['Email',r.customerEmail||'-'],
+    ['銷售日期',r.saleDate||'-'],
+    ['出貨者',r.soldByName||'-'],
+    ['發票號碼',r.invoice||'-'],
+    ['備註',r.note||'-'],
+  ];
+
+  document.getElementById('detail-body').innerHTML=`
+    ${r.status==='sold'?`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px"><span>保固進度</span><span>${Math.round(pct)}%</span></div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${barColor}"></div></div></div>`:''}
+    ${rows.map(([k,v])=>`<div class="d-row"><span class="d-k">${k}</span><span class="d-v">${v}</span></div>`).join('')}`;
+
+  const actions=document.getElementById('detail-actions');
+  const canSell=r.status==='stock'&&canEdit();
+  actions.innerHTML=`${canSell?`<button class="btn btn-red" onclick="openSellFromDetail('${id}')">📤 出庫</button>`:''}
+    <button class="btn btn-ghost" onclick="printOne('${id}')">🏷 印貼紙</button>
+    <button class="btn btn-ghost" onclick="closeDetail()">關閉</button>`;
+  document.getElementById('detail-overlay').classList.add('open');
+}
+function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
+
+function openSellFromDetail(id) {
+  closeDetail();
+  document.getElementById('out-serial').value=id;
+  setOutMode('full');
+  switchTab('stock-out');
+  lookupSerial();
+}
+
+// ═══════════════════════════════════════════
+// USERS
+// ═══════════════════════════════════════════
+function renderUserList() {
+  const el=document.getElementById('user-list');
+  if(!users.length){el.innerHTML='<div class="empty"><p>尚無使用者</p></div>';return;}
+  el.innerHTML=users.map(u=>`
+    <div class="user-row">
+      <div class="u-avatar">${(u.name||u.email)[0].toUpperCase()}</div>
+      <div class="u-info"><div class="u-name">${u.name||'—'}</div><div class="u-email">${u.email}</div></div>
+      <div class="u-controls">
+        <select onchange="changeRole('${u.email}',this.value)" style="font-size:12px;padding:5px 8px;width:auto">
+          <option value="admin" ${u.role==='admin'?'selected':''}>管理員</option>
+          <option value="staff" ${u.role==='staff'?'selected':''}>業務</option>
+          <option value="viewer" ${u.role==='viewer'?'selected':''}>唯讀</option>
+        </select>
+        ${u.email!==currentUser?.email?`<button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="removeUser('${u.email}')">刪除</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function openAddUser() { document.getElementById('add-user-modal').classList.add('open'); }
+function closeAddUser() { document.getElementById('add-user-modal').classList.remove('open'); }
+
+async function addUser() {
+  const name=document.getElementById('nu-name').value.trim();
+  const email=document.getElementById('nu-email').value.trim();
+  const pw=document.getElementById('nu-pw').value;
+  const role=document.getElementById('nu-role').value;
+  if(!email) { showToast('⚠ 請輸入 Email'); return; }
+  if(users.find(u=>u.email.toLowerCase()===email.toLowerCase())) { showToast('⚠ 此 Email 已存在'); return; }
+
+  const u={ name, email, role, password: pw?hashPw(pw):'', createdAt:now(), createdBy:currentUser.email };
+  users.push(u);
+  if(CONFIG.SHEET_URL){ try{ await api({action:'addUser',...u}); }catch(e){} }
+  addLog('EDIT',`新增使用者 ${email}（${roleLabel(role)}）`,currentUser);
+  saveLocal(); renderUserList(); closeAddUser();
+  showToast(`✅ 已新增 ${name||email}`);
+}
+
+async function changeRole(email, role) {
+  const u=users.find(x=>x.email===email);
+  if(u){ u.role=role; saveLocal(); }
+  if(CONFIG.SHEET_URL){ try{ await api({action:'updateUser',email,role}); }catch(e){} }
+  addLog('EDIT',`變更 ${email} 角色為 ${roleLabel(role)}`,currentUser);
+  showToast('✅ 已更新角色');
+}
+
+async function removeUser(email) {
+  if(!confirm(`確定要移除 ${email}？`)) return;
+  users=users.filter(u=>u.email!==email);
+  if(CONFIG.SHEET_URL){ try{ await api({action:'removeUser',email}); }catch(e){} }
+  addLog('EDIT',`移除使用者 ${email}`,currentUser);
+  saveLocal(); renderUserList();
+  showToast('✅ 已移除');
+}
+
+// ═══════════════════════════════════════════
+// AUDIT LOG
+// ═══════════════════════════════════════════
+function addLog(type, detail, user, serial='') {
+  const entry={ type, detail, serial, userEmail:user?.email||'', userName:user?.name||'', ts:new Date().toISOString() };
+  auditLog.push(entry);
+  if(auditLog.length>500) auditLog=auditLog.slice(-500);
+  localStorage.setItem('gda_audit',JSON.stringify(auditLog));
+  if(CONFIG.SHEET_URL){ try{ api({action:'addLog',...entry}); }catch(e){} }
+}
+
+function renderAuditLog() {
+  const filter=document.getElementById('audit-filter').value;
+  let logs=[...auditLog].reverse();
+  if(filter!=='all') logs=logs.filter(l=>l.type===filter);
+  const el=document.getElementById('audit-list');
+  if(!logs.length){el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>無紀錄</p></div>';return;}
+  el.innerHTML=logs.slice(0,100).map(l=>`
+    <div class="log-item">
+      <div class="log-top">
+        <span class="log-action ${l.type.toLowerCase()}">${{IN:'📥 入庫',OUT:'📤 出庫',LOGIN:'🔑 登入',EDIT:'✏ 修改'}[l.type]||l.type}</span>
+        <span class="log-time">${new Date(l.ts).toLocaleString('zh-TW')}</span>
+      </div>
+      <div class="log-user">👤 ${l.userName||''} &lt;${l.userEmail}&gt;</div>
+      <div class="log-detail">${l.detail}${l.serial?` | ${l.serial}`:''}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// LABELS
+// ═══════════════════════════════════════════
+function renderLabelList() {
+  const q=(document.getElementById('label-search').value||'').toLowerCase();
+  const items=records.filter(r=>!q||[r.internalSerial,r.model].join(' ').toLowerCase().includes(q));
+  const el=document.getElementById('label-list');
+  el.innerHTML=items.map(r=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:3px;cursor:pointer">
+      <input type="checkbox" ${labelSelected.has(r.id)?'checked':''} onchange="toggleLabel('${r.id}',this.checked)">
+      <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.model}</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${r.internalSerial}</div></div>
+      <span class="badge ${r.status==='stock'?'b-stock':'b-sold'}">${r.status==='stock'?'未售':'已售'}</span>
+    </label>`).join('');
+  updateLabelCount();
+}
+
+function toggleLabel(id, checked) {
+  checked?labelSelected.add(id):labelSelected.delete(id);
+  updateLabelCount();
+  if(labelSelected.size>0){const r=records.find(x=>x.id==[...labelSelected][0]);if(r)updateLabelPreview(r);}
+}
+function updateLabelCount(){document.getElementById('label-count').textContent=`已選 ${labelSelected.size} 件`;}
+function selectAllLabels(){records.forEach(r=>labelSelected.add(r.id));renderLabelList();}
+function clearLabelSel(){labelSelected.clear();renderLabelList();}
+function updateLabelPreview(r){updatePreviewBarcode(r.internalSerial);document.getElementById('preview-serial-text').textContent=r.internalSerial;document.getElementById('lp-model').textContent=r.model;document.getElementById('lp-date').textContent=r.inDate;}
+function updatePreviewBarcode(s){try{JsBarcode('#preview-barcode',s,{format:'CODE128',width:1.5,height:40,displayValue:false,margin:0});}catch(e){}}
+function printOne(id){const r=records.find(x=>x.id===id);if(!r)return;labelSelected.clear();labelSelected.add(id);closeDetail();switchTab('label');renderLabelList();updateLabelPreview(r);}
+function printLabels(){
+  if(!labelSelected.size){showToast('⚠ 請先選擇品項');return;}
+  const grid=document.getElementById('print-grid');
+  const sel=records.filter(r=>labelSelected.has(r.id));
+  grid.innerHTML=sel.map(r=>{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('id','bc-'+r.id);JsBarcode(svg,r.internalSerial,{format:'CODE128',width:1.5,height:40,displayValue:false,margin:0});return`<div class="label-card"><div class="label-company">GD AUDIO <small>AUTHORIZED</small></div>${svg.outerHTML}<div class="label-serial-text">${r.internalSerial}</div><div class="label-info"><div class="label-row"><span>MODEL</span><span>${r.model}</span></div><div class="label-row"><span>IN DATE</span><span>${r.inDate}</span></div></div></div>`;}).join('');
+  setTimeout(()=>window.print(),300);
+}
+
+// ═══════════════════════════════════════════
+// SERIAL / WARRANTY
+// ═══════════════════════════════════════════
+function ym(date){const d=date?new Date(date):new Date();return String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0');}
+function modelCode(m){return(m||'PRD').replace(/[^A-Z0-9]/gi,'').slice(0,6).toUpperCase();}
+function buildSerial(ym,m,n){return`${CONFIG.COMPANY}-${ym}-${m}-${String(n).padStart(4,'0')}`;}
+function warrantyExpiry(d,y){const dt=new Date(d);dt.setFullYear(dt.getFullYear()+y);return dt.toISOString().split('T')[0];}
+function wStatus(r){
+  if(r.status==='stock') return{s:'stock',label:'庫存中'};
+  const diff=Math.floor((new Date(r.warrantyExpiry)-new Date())/86400000);
+  if(diff<0) return{s:'exp',label:'已到期'};
+  if(diff<=90) return{s:'warn',label:`剩 ${diff} 天`};
+  return{s:'ok',label:`剩 ${diff} 天`};
+}
+
+async function getNextCounter(ymStr,mCode){
+  const key=`CTR_${ymStr}_${mCode}`;
+  if(CONFIG.SHEET_URL){try{const r=await api({action:'getCounter',ym:ymStr,model:mCode});if(r.ok)return r.counter+1;}catch(e){}}
+  return parseInt(localStorage.getItem(key)||'0')+1;
+}
+async function setCounter(ymStr,mCode,val){
+  localStorage.setItem(`CTR_${ymStr}_${mCode}`,String(val));
+  if(CONFIG.SHEET_URL){try{await api({action:'setCounter',ym:ymStr,model:mCode,value:val});}catch(e){}}
+}
+
+// ═══════════════════════════════════════════
+// GOOGLE SHEETS API
+// ═══════════════════════════════════════════
+async function api(data){
+  if(!CONFIG.SHEET_URL) throw new Error('未設定 Sheet URL');
+  const res=await fetch(CONFIG.SHEET_URL,{method:'POST',body:JSON.stringify(data),headers:{'Content-Type':'text/plain'}});
+  return res.json();
+}
+
+async function syncFromSheet(){
+  try{
+    const res=await fetch(CONFIG.SHEET_URL+'?action=all');
+    const data=await res.json();
+    if(data.ok&&data.records){
+      records=data.records.map(r=>({
+        id:r['內部序號'],internalSerial:r['內部序號'],originalSerial:r['原廠序號'],
+        model:r['型號'],inDate:r['入庫日期'],warrantyYears:parseInt(r['保固年限'])||2,
+        warrantyExpiry:r['保固到期'],status:r['狀態']||'stock',
+        customerName:r['客戶姓名']||'',customerPhone:r['聯絡電話']||'',
+        customerEmail:r['Email']||'',saleDate:r['銷售日期']||'',
+        invoice:r['發票號碼']||'',cost:r['進貨成本']||'',note:r['備註']||'',
+        createdBy:r['入庫者Email']||'',createdByName:r['入庫者']||'',
+        soldBy:r['出庫者Email']||'',soldByName:r['出庫者']||'',
+        soldAt:r['出庫時間']||'',createdAt:r['建立時間']||new Date().toISOString()
+      }));
+      saveLocal();renderDash();renderList();renderLabelList();
+    }
+    if(data.ok&&data.users) { users=data.users; saveLocal(); renderUserList(); }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════
+// LOCAL STORAGE / UTILS
+// ═══════════════════════════════════════════
+function saveLocal(){localStorage.setItem('gda_records',JSON.stringify(records));localStorage.setItem('gda_users',JSON.stringify(users));}
+function canEdit(){if(!currentUser){showToast('⚠ 請先登入');return false;}if(currentUser.role==='viewer'){showToast('⚠ 您沒有操作權限');return false;}return true;}
+function today(){return new Date().toISOString().split('T')[0];}
+function now(){return new Date().toISOString();}
+function fmtTime(ts){return new Date(ts).toLocaleString('zh-TW');}
+function parseJwt(token){const b=token.split('.')[1];const d=atob(b.replace(/-/g,'+').replace(/_/g,'/'));return JSON.parse(decodeURIComponent(escape(d)));}
+function hashPw(pw){let h=0;for(let i=0;i<pw.length;i++){h=((h<<5)-h)+pw.charCodeAt(i);h|=0;}return h.toString(36);}
+
+function exportCSV(){
+  if(!records.length){showToast('⚠ 沒有資料');return;}
+  const h=['內部序號','原廠序號','型號','入庫日期','保固年限','保固到期','狀態','客戶姓名','聯絡電話','Email','銷售日期','出貨者','發票號碼','備註','入庫者','建立時間'];
+  const rows=records.map(r=>[r.internalSerial,r.originalSerial,r.model,r.inDate,r.warrantyYears,r.warrantyExpiry,r.status,r.customerName,r.customerPhone,r.customerEmail,r.saleDate,r.soldByName,r.invoice,r.note,r.createdByName,r.createdAt].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv='\uFEFF'+[h.join(','),...rows].join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`gd_audio_${today()}.csv`;a.click();
+}
+
+// ═══════════════════════════════════════════
+// SCANNER
+// ═══════════════════════════════════════════
+function openScanner(targetId){scanTarget=targetId;document.getElementById('manual-input').value='';document.getElementById('scanner-modal').classList.add('open');startQuagga();}
+function closeScanner(){document.getElementById('scanner-modal').classList.remove('open');stopQuagga();}
+function startQuagga(){if(quaggaRunning)return;Quagga.init({inputStream:{name:'Live',type:'LiveStream',target:document.querySelector('#scanner-container'),constraints:{facingMode:'environment',width:420,height:260}},decoder:{readers:['code_128_reader','ean_reader','code_39_reader']},locate:true},err=>{if(err){console.warn(err);return;}Quagga.start();quaggaRunning=true;});Quagga.onDetected(r=>{const code=r.codeResult.code;if(code&&code.length>3){if(scanTarget){document.getElementById(scanTarget).value=code;if(scanTarget==='out-serial')lookupSerial();if(scanTarget==='quick-serial')quickLookup();}stopQuagga();closeScanner();showToast('📷 '+code);}});}
+function stopQuagga(){if(!quaggaRunning)return;try{Quagga.stop();}catch(e){}quaggaRunning=false;}
+function confirmManual(){const v=document.getElementById('manual-input').value.trim();if(!v)return;if(scanTarget){document.getElementById(scanTarget).value=v;if(scanTarget==='out-serial')lookupSerial();if(scanTarget==='quick-serial')quickLookup();}closeScanner();showToast('✅ 已填入');}
+
+// ═══════════════════════════════════════════
+// TABS / TOAST
+// ═══════════════════════════════════════════
+function switchTab(tab){
+  const tabs=['dash','stock-in','stock-out','list','label','users','audit'];
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  const idx=tabs.indexOf(tab);
+  if(idx>=0)document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('user-menu').classList.remove('open');
+  if(tab==='dash')renderDash();
+  if(tab==='list')renderList();
+  if(tab==='label')renderLabelList();
+  if(tab==='users')renderUserList();
+  if(tab==='audit')renderAuditLog();
+  if(tab==='stock-out')renderTodayQuick();
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
+</script>
+</body>
+</html>
