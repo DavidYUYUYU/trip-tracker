@@ -210,7 +210,7 @@ select:focus{border-color:var(--accent)}
         <div style="flex:1;padding-bottom:8px">
           <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:6px">
             <div><label>起始名稱</label><input type="text" id="start-company" placeholder="例：台中總公司"></div>
-            <div style="width:105px"><label>出發時間</label><input type="time" id="start-time"></div>
+            <div style="width:130px"><label>出發時間</label><input type="time" id="start-time" style="font-size:14px;padding:10px 8px"></div>
           </div>
           <div>
             <label style="color:var(--accent2)">📍 搜尋地點（Maps用）</label>
@@ -245,7 +245,7 @@ select:focus{border-color:var(--accent)}
         <div style="flex:1;padding-bottom:4px">
           <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:6px">
             <div><label>抵達名稱</label><input type="text" id="end-company" placeholder="例：台北客戶"></div>
-            <div style="width:105px"><label>抵達時間</label><input type="time" id="end-time"></div>
+            <div style="width:130px"><label>結束時間</label><input type="time" id="end-time" style="font-size:14px;padding:10px 8px"></div>
           </div>
           <div>
             <label style="color:var(--accent2)">📍 搜尋地點（Maps用）</label>
@@ -285,6 +285,12 @@ select:focus{border-color:var(--accent)}
     </div>
 
     <button class="btn btn-primary" id="save-btn" onclick="addTrip()">✓ 儲存行程</button>
+    <div id="home-trip-btn-wrap" style="display:none;margin-top:10px">
+      <button class="btn" style="background:var(--surface2);border:1px solid var(--accent);color:var(--accent)" onclick="addHomeTrip()">
+        🏠 一鍵新增回家里程
+      </button>
+      <div id="home-trip-info" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:6px;text-align:center"></div>
+    </div>
   </div>
 
   <!-- ══ 紀錄 ══ -->
@@ -389,6 +395,21 @@ select:focus{border-color:var(--accent)}
       </div>
     </div>
     <input type="number" id="default-rate" style="display:none">
+
+    <div class="card" style="margin-top:14px">
+      <div class="card-title">🏠 回家里程設定</div>
+      <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">設定後，新增行程時可一鍵加入回家里程</div>
+      <div class="setting-row">
+        <div><div class="setting-lbl">回家地點名稱</div><div class="setting-sub">顯示在記錄上</div></div>
+        <input type="text" id="home-name" placeholder="例：台中家" onchange="saveSettings();updateHomePreview()">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-lbl">回家固定里程</div><div class="setting-sub">公里數</div></div>
+        <input type="number" id="home-dist" placeholder="例：15" inputmode="decimal" step="0.1" style="width:100px" onchange="saveSettings();updateHomePreview()">
+      </div>
+      <div id="home-preview" style="display:none;margin-top:10px;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:10px;font-size:12px;font-family:var(--mono);color:var(--accent)"></div>
+    </div>
+
     <div style="text-align:center;margin-top:24px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2">
       BUSINESS TRIP TRACKER v5.0<br>GitHub Pages + Google Sheets API
     </div>
@@ -415,7 +436,7 @@ select:focus{border-color:var(--accent)}
         <input type="checkbox" id="col-waypoint" checked style="width:18px;height:18px;accent-color:var(--accent)"> 中途站
       </label>
       <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="checkbox" id="col-end" checked style="width:18px;height:18px;accent-color:var(--accent)"> 抵達名稱＋抵達時間
+        <input type="checkbox" id="col-end" checked style="width:18px;height:18px;accent-color:var(--accent)"> 抵達名稱＋結束時間
       </label>
       <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:14px;color:var(--text)">
         <input type="checkbox" id="col-dist" checked style="width:18px;height:18px;accent-color:var(--accent)"> 里程 KM
@@ -536,14 +557,14 @@ const TRIP_SHEET   = '出差紀錄';
 const EXP_SHEET    = '費用明細';
 const SET_SHEET    = '個人設定';
 
-const TRIP_HEADERS = ['ID','Email','日期','起始名稱','出發時間','中途站','抵達名稱','抵達時間','里程KM','客戶區域','建立時間'];
+const TRIP_HEADERS = ['ID','Email','日期','起始名稱','出發時間','中途站','抵達名稱','結束時間','里程KM','客戶區域','建立時間'];
 const EXP_HEADERS  = ['ID','TripID','Email','日期','里程費用','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用','建立時間'];
-const SET_HEADERS  = ['Email','姓名','費率','貨幣'];
+const SET_HEADERS  = ['Email','姓名','費率','貨幣','回家地點','回家里程'];
 
 // ══ 狀態 ══
 let trips       = [];  // 行程紀錄
 let expenses    = {};  // { tripId: { hsr, etc, park, oil, taxi, total } }
-let settings    = { name:'', rate:'', currency:'NT$' };
+let settings    = { name:'', rate:'', currency:'NT$', homeName:'', homeDist:0 };
 let userEmail   = '';
 let accessToken = '';
 let mapsDist    = 0;
@@ -686,27 +707,35 @@ async function loadSettings() {
     settings.name     = row?.[1] || '';
     settings.rate     = row?.[2] || '';
     settings.currency = row?.[3] || 'NT$';
+    settings.homeName = row?.[4] || '';
+    settings.homeDist = parseFloat(row?.[5]) || 0;
   } catch(e) { }
   document.getElementById('user-name').value    = settings.name;
   document.getElementById('default-rate').value = settings.rate;
   document.getElementById('currency-sym').value  = settings.currency;
-  // 同步費率到新增頁面
+  document.getElementById('home-name').value     = settings.homeName;
+  document.getElementById('home-dist').value     = settings.homeDist || '';
   const addRateEl = document.getElementById('add-rate');
   if (addRateEl) addRateEl.value = settings.rate;
+  updateHomePreview();
+  showHomeTripBtn();
 }
 
 async function saveSettings() {
   settings.name     = document.getElementById('user-name').value.trim();
   settings.rate     = document.getElementById('default-rate').value;
   settings.currency = document.getElementById('currency-sym').value || 'NT$';
+  settings.homeName = document.getElementById('home-name').value.trim();
+  settings.homeDist = parseFloat(document.getElementById('home-dist').value) || 0;
+  showHomeTripBtn();
   try {
     const d = await sGet(`${SET_SHEET}!A:A`);
     const rows = (d.values||[]);
     let rowIdx = -1;
     for (let i=1;i<rows.length;i++) { if(rows[i][0]===userEmail){rowIdx=i+1;break;} }
-    const vals = [[userEmail, settings.name, settings.rate, settings.currency]];
-    if (rowIdx>0) await sUpdate(`${SET_SHEET}!A${rowIdx}:D${rowIdx}`, vals);
-    else await sAppend(`${SET_SHEET}!A:D`, vals);
+    const vals = [[userEmail, settings.name, settings.rate, settings.currency, settings.homeName, settings.homeDist]];
+    if (rowIdx>0) await sUpdate(`${SET_SHEET}!A${rowIdx}:F${rowIdx}`, vals);
+    else await sAppend(`${SET_SHEET}!A:F`, vals);
     toast('✓ 設定已儲存');
   } catch(e) { toast('儲存失敗：'+e.message, true); }
 }
@@ -1304,8 +1333,8 @@ async function runExport() {
     { key:'startTime', label:'出發時間',  val: t=>t.startTime,               num:false, checked: gc('col-start') },
     { key:'waypoint',  label:'中途站',    val: t=>t.waypoints||'',           num:false, checked: gc('col-waypoint') },
     { key:'end',       label:'抵達名稱',  val: t=>t.endCompany||'',          num:false, checked: gc('col-end') },
-    { key:'endTime',   label:'抵達時間',  val: t=>t.endTime,                 num:false, checked: gc('col-end') },
-    { key:'dist',      label:'里程KM',    val: t=>t.dist||0,                 num:true,  checked: gc('col-dist') },
+    { key:'endTime',   label:'結束時間',  val: t=>t.endTime,                 num:false, checked: gc('col-end') },
+    { key:'dist',      label:'里程KM',    val: t=>t.dist||0,                 num:true,  notCur:true, checked: gc('col-dist') },
     { key:'area',      label:'客戶區域',  val: t=>t.area||'',                num:false, checked: gc('col-area') },
     { key:'mile',      label:'里程費用',  val: t=>(expenses[t.id]?.mile||0), num:true,  checked: gc('col-mile') },
     { key:'hsr',       label:'高鐵費用',  val: t=>(expenses[t.id]?.hsr||0),  num:true,  checked: gc('col-hsr') },
@@ -1342,7 +1371,10 @@ async function runExport() {
     let statsHtml = '';
     cols.filter(c=>c.num).forEach(c=>{
       const s = filtered.reduce((a,t)=>a+(+c.val(t)||0),0);
-      if (s > 0) statsHtml += '<div class="stat"><div class="sv">'+cur+' '+s.toLocaleString()+'</div><div class="sl">'+c.label+'</div></div>';
+      if (s > 0) {
+        const prefix = c.notCur ? '' : cur+' ';
+        statsHtml += '<div class="stat"><div class="sv">'+prefix+s.toLocaleString()+'</div><div class="sl">'+c.label+'</div></div>';
+      }
     });
 
     let trHtml = '';
@@ -1460,6 +1492,70 @@ async function saveModalExpenses() {
     toast('費用儲存失敗：'+e.message, true);
   }
 }
+// ══ 回家里程 ══
+function showHomeTripBtn() {
+  const wrap = document.getElementById('home-trip-btn-wrap');
+  const info  = document.getElementById('home-trip-info');
+  if (!wrap) return;
+  if (settings.homeName && settings.homeDist > 0) {
+    wrap.style.display = 'block';
+    info.textContent = settings.homeName + '（' + settings.homeDist + ' km）';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function updateHomePreview() {
+  const name  = document.getElementById('home-name')?.value.trim();
+  const dist  = parseFloat(document.getElementById('home-dist')?.value) || 0;
+  const rate  = parseFloat(document.getElementById('add-rate')?.value) || parseFloat(settings.rate) || 0;
+  const prev  = document.getElementById('home-preview');
+  if (!prev) return;
+  if (name && dist > 0) {
+    const cur  = settings.currency || 'NT$';
+    const cost = rate > 0 ? '，里程費 ' + cur + ' ' + (dist * rate).toFixed(0) : '';
+    prev.textContent = '🏠 ' + name + ' ｜ ' + dist + ' km' + cost;
+    prev.style.display = 'block';
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+async function addHomeTrip() {
+  if (!settings.homeName || settings.homeDist <= 0) {
+    toast('請先在設定頁面設定回家地點和里程', true); return;
+  }
+  const date = document.getElementById('trip-date').value || new Date().toISOString().split('T')[0];
+  const rate = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
+  const dist = settings.homeDist;
+  const mileCost = rate > 0 ? +(dist * rate).toFixed(0) : 0;
+  const id   = Date.now().toString();
+  const now  = new Date().toLocaleString('zh-TW', { timeZone:'Asia/Taipei' });
+
+  const btn = document.getElementById('home-trip-btn-wrap').querySelector('button');
+  btn.disabled = true;
+  try {
+    await sAppend(`${TRIP_SHEET}!A:K`, [[
+      id, userEmail, date, '（回家）', '', '', settings.homeName, '', dist, '', now
+    ]]);
+    trips.unshift({ id, date, startCompany:'（回家）', startTime:'', waypoints:'', endCompany:settings.homeName, endTime:'', dist, area:'' });
+
+    if (mileCost > 0) {
+      const expId = (Date.now()+1).toString();
+      await sAppend(`${EXP_SHEET}!A:L`, [[
+        expId, id, userEmail, date, mileCost, 0, 0, 0, 0, 0, mileCost, now
+      ]]);
+      expenses[id] = { id:expId, mile:mileCost, hsr:0, etc:0, park:0, oil:0, taxi:0, total:mileCost };
+    }
+
+    renderAll();
+    updateExpTripSelect();
+    const cur = settings.currency || 'NT$';
+    toast('✓ 回家里程已加入' + (mileCost > 0 ? '，里程費 ' + cur + ' ' + mileCost.toLocaleString() : ''));
+  } catch(e) { toast('新增失敗：' + e.message, true); }
+  btn.disabled = false;
+}
+
 // ══ Toast ══
 function toast(msg,isErr) {
   const t=document.getElementById('toast');
