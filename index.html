@@ -829,6 +829,10 @@ async function addTrip() {
     const mileCost = mapsDist > 0 && rate > 0 ? +(mapsDist * rate).toFixed(0) : 0;
     const distSnap = mapsDist; // 在清空前先存起來
 
+    // 記住抵達地點供回家里程使用
+    lastEndCompany = endCompany;
+    lastEndSearch  = document.getElementById('end-search').value.trim() || endCompany;
+
     trips.unshift({ id, date, startCompany, startTime, waypoints, endCompany, endTime, dist:mapsDist, area });
 
     // 清空表單
@@ -1521,6 +1525,8 @@ async function saveModalExpenses() {
 }
 // ══ 回家里程 ══
 let homeDist = 0; // 本次計算出的回家里程
+let lastEndCompany = ''; // 上一筆行程的抵達名稱
+let lastEndSearch  = ''; // 上一筆行程的抵達搜尋地址
 
 function showHomeTripBtn() {
   const wrap = document.getElementById('home-trip-btn-wrap');
@@ -1528,7 +1534,8 @@ function showHomeTripBtn() {
   if (!wrap) return;
   if (settings.homeName && settings.homeAddr) {
     wrap.style.display = 'block';
-    info.textContent = '住家：' + settings.homeName + '（' + settings.homeAddr + '）';
+    const from = lastEndCompany || '（請先儲存一筆行程）';
+    info.textContent = from + ' → ' + settings.homeName;
   } else {
     wrap.style.display = 'none';
   }
@@ -1576,12 +1583,11 @@ async function saveHomeSettings() {
 }
 
 async function calcHomeByMaps() {
-  // 從抵達地點搜尋框或名稱取得「出發點」（即抵達地點）
-  const fromVal = document.getElementById('end-search').value.trim()
-               || document.getElementById('end-company').value.trim();
+  // 用上一筆行程的抵達地點當出發點
+  const fromVal = lastEndSearch || lastEndCompany;
   const toVal   = settings.homeAddr;
 
-  if (!fromVal) { document.getElementById('home-maps-status').textContent = '⚠ 請先填寫抵達地點'; return; }
+  if (!fromVal) { document.getElementById('home-maps-status').textContent = '⚠ 請先儲存一筆行程'; return; }
   if (!toVal)   { document.getElementById('home-maps-status').textContent = '⚠ 請先在設定頁設定住家地址'; return; }
   if (!mapsReady){ document.getElementById('home-maps-status').textContent = '⚠ Google Maps 尚未載入'; return; }
 
@@ -1631,7 +1637,7 @@ async function addHomeTrip() {
   }
 
   const date = document.getElementById('trip-date').value || new Date().toISOString().split('T')[0];
-  const from = document.getElementById('end-company').value.trim() || '出差地點';
+  const from = lastEndCompany || '出差地點';
   const rate = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
   const mileCost = rate > 0 ? +(homeDist * rate).toFixed(0) : 0;
   const id  = Date.now().toString();
