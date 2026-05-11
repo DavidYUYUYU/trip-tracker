@@ -286,10 +286,24 @@ select:focus{border-color:var(--accent)}
 
     <button class="btn btn-primary" id="save-btn" onclick="addTrip()">✓ 儲存行程</button>
     <div id="home-trip-btn-wrap" style="display:none;margin-top:10px">
-      <button class="btn" style="background:var(--surface2);border:1px solid var(--accent);color:var(--accent)" onclick="addHomeTrip()">
-        🏠 一鍵新增回家里程
-      </button>
-      <div id="home-trip-info" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:6px;text-align:center"></div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">🏠 回家里程</div>
+        <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:10px" id="home-trip-info"></div>
+        <button class="btn btn-secondary" id="home-calc-btn" onclick="calcHomeByMaps()" style="margin-bottom:8px">
+          🗺️ 用 Google Maps 計算回家里程
+        </button>
+        <div id="home-maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px;text-align:center;min-height:14px"></div>
+        <div id="home-dist-result" style="display:none;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">回家里程 KM</span>
+          <div style="display:flex;align-items:baseline;gap:4px">
+            <span style="font-family:var(--mono);font-size:20px;color:var(--accent);font-weight:500" id="home-dist-show">—</span>
+            <span style="font-size:12px;color:var(--text2)">km</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="home-save-btn" onclick="addHomeTrip()" style="display:none">
+          ✓ 新增回家里程紀錄
+        </button>
+      </div>
     </div>
   </div>
 
@@ -397,17 +411,23 @@ select:focus{border-color:var(--accent)}
     <input type="number" id="default-rate" style="display:none">
 
     <div class="card" style="margin-top:14px">
-      <div class="card-title">🏠 回家里程設定</div>
-      <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">設定後，新增行程時可一鍵加入回家里程</div>
-      <div class="setting-row">
-        <div><div class="setting-lbl">回家地點名稱</div><div class="setting-sub">顯示在記錄上</div></div>
-        <input type="text" id="home-name" placeholder="例：台中家" onchange="saveSettings();updateHomePreview()">
+      <div class="card-title">🏠 住家設定</div>
+      <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">設定住家地點後，新增行程時可自動計算回家里程</div>
+
+      <div class="field">
+        <label>住家名稱（顯示用）</label>
+        <input type="text" id="home-name" placeholder="例：台中家" oninput="updateHomePreview()">
       </div>
-      <div class="setting-row">
-        <div><div class="setting-lbl">回家固定里程</div><div class="setting-sub">公里數</div></div>
-        <input type="number" id="home-dist" placeholder="例：15" inputmode="decimal" step="0.1" style="width:100px" onchange="saveSettings();updateHomePreview()">
+      <div class="field">
+        <label style="color:var(--accent2)">📍 住家地址（Google Maps 搜尋）</label>
+        <input type="text" id="home-search" placeholder="輸入地址搜尋" autocomplete="off" style="border-color:var(--accent2)">
       </div>
-      <div id="home-preview" style="display:none;margin-top:10px;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:10px;font-size:12px;font-family:var(--mono);color:var(--accent)"></div>
+      <div id="home-dist-box" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;font-family:var(--mono);color:var(--text2)">
+        住家地址：<span id="home-addr-show" style="color:var(--accent)"></span>
+      </div>
+      <input type="hidden" id="home-dist" value="0">
+      <div id="home-preview" style="display:none;margin-top:4px;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:10px;font-size:12px;font-family:var(--mono);color:var(--accent)"></div>
+      <button onclick="saveHomeSettings()" style="width:100%;margin-top:12px;padding:11px;border-radius:8px;border:none;background:var(--accent);color:#0f1117;font-size:14px;font-weight:700;cursor:pointer">💾 儲存住家設定</button>
     </div>
 
     <div style="text-align:center;margin-top:24px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2">
@@ -559,12 +579,12 @@ const SET_SHEET    = '個人設定';
 
 const TRIP_HEADERS = ['ID','Email','日期','起始名稱','出發時間','中途站','抵達名稱','結束時間','里程KM','客戶區域','建立時間'];
 const EXP_HEADERS  = ['ID','TripID','Email','日期','里程費用','高鐵','回數票/ETC','停車費','油資單','計程車費','總費用','建立時間'];
-const SET_HEADERS  = ['Email','姓名','費率','貨幣','回家地點','回家里程'];
+const SET_HEADERS  = ['Email','姓名','費率','貨幣','回家地點','回家里程','住家地址'];
 
 // ══ 狀態 ══
 let trips       = [];  // 行程紀錄
 let expenses    = {};  // { tripId: { hsr, etc, park, oil, taxi, total } }
-let settings    = { name:'', rate:'', currency:'NT$', homeName:'', homeDist:0 };
+let settings    = { name:'', rate:'', currency:'NT$', homeName:'', homeDist:0, homeAddr:'' };
 let userEmail   = '';
 let accessToken = '';
 let mapsDist    = 0;
@@ -709,33 +729,39 @@ async function loadSettings() {
     settings.currency = row?.[3] || 'NT$';
     settings.homeName = row?.[4] || '';
     settings.homeDist = parseFloat(row?.[5]) || 0;
+    settings.homeAddr = row?.[6] || '';
   } catch(e) { }
   document.getElementById('user-name').value    = settings.name;
   document.getElementById('default-rate').value = settings.rate;
   document.getElementById('currency-sym').value  = settings.currency;
   document.getElementById('home-name').value     = settings.homeName;
-  document.getElementById('home-dist').value     = settings.homeDist || '';
+  document.getElementById('home-dist').value     = settings.homeDist || 0;
+  if (settings.homeAddr) {
+    document.getElementById('home-search').value  = settings.homeAddr;
+    document.getElementById('home-addr-show').textContent = settings.homeAddr;
+    document.getElementById('home-dist-box').style.display = 'block';
+  }
   const addRateEl = document.getElementById('add-rate');
   if (addRateEl) addRateEl.value = settings.rate;
   updateHomePreview();
   showHomeTripBtn();
+  // 設定頁的住家搜尋框
+  if (mapsReady) setupSearch('home-search');
 }
 
 async function saveSettings() {
   settings.name     = document.getElementById('user-name').value.trim();
   settings.rate     = document.getElementById('default-rate').value;
   settings.currency = document.getElementById('currency-sym').value || 'NT$';
-  settings.homeName = document.getElementById('home-name').value.trim();
-  settings.homeDist = parseFloat(document.getElementById('home-dist').value) || 0;
   showHomeTripBtn();
   try {
     const d = await sGet(`${SET_SHEET}!A:A`);
     const rows = (d.values||[]);
     let rowIdx = -1;
     for (let i=1;i<rows.length;i++) { if(rows[i][0]===userEmail){rowIdx=i+1;break;} }
-    const vals = [[userEmail, settings.name, settings.rate, settings.currency, settings.homeName, settings.homeDist]];
-    if (rowIdx>0) await sUpdate(`${SET_SHEET}!A${rowIdx}:F${rowIdx}`, vals);
-    else await sAppend(`${SET_SHEET}!A:F`, vals);
+    const vals = [[userEmail, settings.name, settings.rate, settings.currency, settings.homeName, settings.homeDist, settings.homeAddr]];
+    if (rowIdx>0) await sUpdate(`${SET_SHEET}!A${rowIdx}:G${rowIdx}`, vals);
+    else await sAppend(`${SET_SHEET}!A:G`, vals);
     toast('✓ 設定已儲存');
   } catch(e) { toast('儲存失敗：'+e.message, true); }
 }
@@ -1111,6 +1137,7 @@ function initMaps() {
   mapsReady = true;
   setupSearch('start-search');
   setupSearch('end-search');
+  setupSearch('home-search');
 }
 window.initMaps = initMaps;
 
@@ -1493,52 +1520,130 @@ async function saveModalExpenses() {
   }
 }
 // ══ 回家里程 ══
+let homeDist = 0; // 本次計算出的回家里程
+
 function showHomeTripBtn() {
   const wrap = document.getElementById('home-trip-btn-wrap');
   const info  = document.getElementById('home-trip-info');
   if (!wrap) return;
-  if (settings.homeName && settings.homeDist > 0) {
+  if (settings.homeName && settings.homeAddr) {
     wrap.style.display = 'block';
-    info.textContent = settings.homeName + '（' + settings.homeDist + ' km）';
+    info.textContent = '住家：' + settings.homeName + '（' + settings.homeAddr + '）';
   } else {
     wrap.style.display = 'none';
   }
 }
 
 function updateHomePreview() {
-  const name  = document.getElementById('home-name')?.value.trim();
-  const dist  = parseFloat(document.getElementById('home-dist')?.value) || 0;
-  const rate  = parseFloat(document.getElementById('add-rate')?.value) || parseFloat(settings.rate) || 0;
-  const prev  = document.getElementById('home-preview');
+  const name = document.getElementById('home-name')?.value.trim();
+  const addr = document.getElementById('home-search')?.value.trim();
+  const prev = document.getElementById('home-preview');
   if (!prev) return;
-  if (name && dist > 0) {
-    const cur  = settings.currency || 'NT$';
-    const cost = rate > 0 ? '，里程費 ' + cur + ' ' + (dist * rate).toFixed(0) : '';
-    prev.textContent = '🏠 ' + name + ' ｜ ' + dist + ' km' + cost;
+  if (name || addr) {
+    prev.textContent = '🏠 ' + (name||'') + (addr ? '（' + addr + '）' : '');
     prev.style.display = 'block';
   } else {
     prev.style.display = 'none';
   }
 }
 
-async function addHomeTrip() {
-  if (!settings.homeName || settings.homeDist <= 0) {
-    toast('請先在設定頁面設定回家地點和里程', true); return;
-  }
-  const date = document.getElementById('trip-date').value || new Date().toISOString().split('T')[0];
-  const rate = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
-  const dist = settings.homeDist;
-  const mileCost = rate > 0 ? +(dist * rate).toFixed(0) : 0;
-  const id   = Date.now().toString();
-  const now  = new Date().toLocaleString('zh-TW', { timeZone:'Asia/Taipei' });
+async function saveHomeSettings() {
+  settings.name     = document.getElementById('user-name').value.trim();
+  settings.rate     = document.getElementById('default-rate').value;
+  settings.currency = document.getElementById('currency-sym').value || 'NT$';
+  settings.homeName = document.getElementById('home-name').value.trim();
+  settings.homeAddr = document.getElementById('home-search').value.trim();
+  settings.homeDist = parseFloat(document.getElementById('home-dist').value) || 0;
 
-  const btn = document.getElementById('home-trip-btn-wrap').querySelector('button');
+  if (!settings.homeName) { toast('請填寫住家名稱', true); return; }
+  if (!settings.homeAddr) { toast('請填寫住家地址', true); return; }
+
+  try {
+    const d = await sGet(`${SET_SHEET}!A:A`);
+    const rows = (d.values||[]);
+    let rowIdx = -1;
+    for (let i=1;i<rows.length;i++) { if(rows[i][0]===userEmail){rowIdx=i+1;break;} }
+    const vals = [[userEmail, settings.name, settings.rate, settings.currency, settings.homeName, settings.homeDist, settings.homeAddr]];
+    if (rowIdx>0) await sUpdate(`${SET_SHEET}!A${rowIdx}:G${rowIdx}`, vals);
+    else await sAppend(`${SET_SHEET}!A:G`, vals);
+
+    // 顯示已儲存的地址
+    document.getElementById('home-addr-show').textContent = settings.homeAddr;
+    document.getElementById('home-dist-box').style.display = 'block';
+    showHomeTripBtn();
+    toast('✓ 住家設定已儲存');
+  } catch(e) { toast('儲存失敗：'+e.message, true); }
+}
+
+async function calcHomeByMaps() {
+  // 從抵達地點搜尋框或名稱取得「出發點」（即抵達地點）
+  const fromVal = document.getElementById('end-search').value.trim()
+               || document.getElementById('end-company').value.trim();
+  const toVal   = settings.homeAddr;
+
+  if (!fromVal) { document.getElementById('home-maps-status').textContent = '⚠ 請先填寫抵達地點'; return; }
+  if (!toVal)   { document.getElementById('home-maps-status').textContent = '⚠ 請先在設定頁設定住家地址'; return; }
+  if (!mapsReady){ document.getElementById('home-maps-status').textContent = '⚠ Google Maps 尚未載入'; return; }
+
+  const btn    = document.getElementById('home-calc-btn');
+  const status = document.getElementById('home-maps-status');
   btn.disabled = true;
+  status.textContent = '🗺️ 計算中...';
+  status.style.color = 'var(--accent3)';
+
+  try {
+    const svc = new google.maps.DirectionsService();
+    const result = await new Promise((resolve, reject) => {
+      svc.route({
+        origin:      fromVal + ' 台灣',
+        destination: toVal   + ' 台灣',
+        travelMode:  google.maps.TravelMode.DRIVING,
+        avoidHighways: vehicleMode === 'moto',
+        region: 'TW', language: 'zh-TW',
+      }, (res, st) => { if (st === 'OK') resolve(res); else reject(new Error(st)); });
+    });
+
+    let totalM = 0;
+    result.routes[0].legs.forEach(l => totalM += l.distance.value);
+    homeDist = totalM / 1000;
+
+    document.getElementById('home-dist-show').textContent = homeDist.toFixed(1);
+    document.getElementById('home-dist-result').style.display = 'flex';
+    document.getElementById('home-save-btn').style.display = 'block';
+    status.textContent = '✓ 抵達地點 → ' + settings.homeName + '：' + homeDist.toFixed(1) + ' km';
+    status.style.color = 'var(--accent)';
+  } catch(e) {
+    let msg = e.message;
+    if (msg === 'NOT_FOUND')     msg = '找不到地點，請確認抵達地址';
+    if (msg === 'ZERO_RESULTS')  msg = '找不到路線';
+    status.textContent = '⚠ ' + msg;
+    status.style.color = 'var(--danger)';
+  }
+  btn.disabled = false;
+}
+
+async function addHomeTrip() {
+  if (!settings.homeName || !settings.homeAddr) {
+    toast('請先在設定頁面設定住家地址', true); return;
+  }
+  if (homeDist <= 0) {
+    toast('請先按「用 Google Maps 計算回家里程」', true); return;
+  }
+
+  const date = document.getElementById('trip-date').value || new Date().toISOString().split('T')[0];
+  const from = document.getElementById('end-company').value.trim() || '出差地點';
+  const rate = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
+  const mileCost = rate > 0 ? +(homeDist * rate).toFixed(0) : 0;
+  const id  = Date.now().toString();
+  const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+
+  const saveBtn = document.getElementById('home-save-btn');
+  saveBtn.disabled = true;
   try {
     await sAppend(`${TRIP_SHEET}!A:K`, [[
-      id, userEmail, date, '（回家）', '', '', settings.homeName, '', dist, '', now
+      id, userEmail, date, from, '', '', settings.homeName, '', homeDist.toFixed(1), '', now
     ]]);
-    trips.unshift({ id, date, startCompany:'（回家）', startTime:'', waypoints:'', endCompany:settings.homeName, endTime:'', dist, area:'' });
+    trips.unshift({ id, date, startCompany: from, startTime:'', waypoints:'', endCompany: settings.homeName, endTime:'', dist: homeDist, area:'' });
 
     if (mileCost > 0) {
       const expId = (Date.now()+1).toString();
@@ -1548,12 +1653,19 @@ async function addHomeTrip() {
       expenses[id] = { id:expId, mile:mileCost, hsr:0, etc:0, park:0, oil:0, taxi:0, total:mileCost };
     }
 
+    // 重置
+    homeDist = 0;
+    document.getElementById('home-dist-show').textContent = '—';
+    document.getElementById('home-dist-result').style.display = 'none';
+    document.getElementById('home-save-btn').style.display = 'none';
+    document.getElementById('home-maps-status').textContent = '';
+
     renderAll();
     updateExpTripSelect();
     const cur = settings.currency || 'NT$';
-    toast('✓ 回家里程已加入' + (mileCost > 0 ? '，里程費 ' + cur + ' ' + mileCost.toLocaleString() : ''));
+    toast('✓ 回家里程已新增' + (mileCost > 0 ? '，里程費 ' + cur + ' ' + mileCost.toLocaleString() : ''));
   } catch(e) { toast('新增失敗：' + e.message, true); }
-  btn.disabled = false;
+  saveBtn.disabled = false;
 }
 
 // ══ Toast ══
