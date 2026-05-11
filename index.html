@@ -1534,7 +1534,10 @@ function showHomeTripBtn() {
   if (!wrap) return;
   if (settings.homeName && settings.homeAddr) {
     wrap.style.display = 'block';
-    const from = lastEndCompany || '（請先儲存一筆行程）';
+    const lastTrip = [...trips]
+      .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+      .find(t => t.endCompany !== settings.homeName);
+    const from = lastTrip?.endCompany || lastEndCompany || '（請先儲存一筆行程）';
     info.textContent = from + ' → ' + settings.homeName;
   } else {
     wrap.style.display = 'none';
@@ -1583,8 +1586,11 @@ async function saveHomeSettings() {
 }
 
 async function calcHomeByMaps() {
-  // 用上一筆行程的抵達地點當出發點
-  const fromVal = lastEndSearch || lastEndCompany;
+  // 用最近一筆行程的抵達搜尋地址當出發點
+  const lastTrip2 = [...trips]
+    .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+    .find(t => t.endCompany !== settings.homeName);
+  const fromVal = lastEndSearch || lastEndCompany || lastTrip2?.endCompany || '';
   const toVal   = settings.homeAddr;
 
   if (!fromVal) { document.getElementById('home-maps-status').textContent = '⚠ 請先儲存一筆行程'; return; }
@@ -1637,7 +1643,11 @@ async function addHomeTrip() {
   }
 
   const date = document.getElementById('trip-date').value || new Date().toISOString().split('T')[0];
-  const from = lastEndCompany || '出差地點';
+  // 從最近一筆行程取得抵達地點名稱（排除回家行程本身）
+  const lastTrip = [...trips]
+    .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+    .find(t => t.endCompany !== settings.homeName);
+  const from = lastTrip?.endCompany || lastEndCompany || '出差地點';
   const rate = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
   const mileCost = rate > 0 ? +(homeDist * rate).toFixed(0) : 0;
   const id  = Date.now().toString();
