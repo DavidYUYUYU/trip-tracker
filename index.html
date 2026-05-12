@@ -751,11 +751,7 @@ async function loadSettings() {
   document.getElementById('currency-sym').value  = settings.currency;
   document.getElementById('home-name').value     = settings.homeName;
   document.getElementById('home-dist').value     = settings.homeDist || 0;
-  if (settings.homeAddr) {
-    document.getElementById('home-search').value  = settings.homeAddr;
-    document.getElementById('home-addr-show').textContent = settings.homeAddr;
-    document.getElementById('home-dist-box').style.display = 'block';
-  }
+  applyHomeSettings();
   const addRateEl = document.getElementById('add-rate');
   if (addRateEl) addRateEl.value = settings.rate;
   updateHomePreview();
@@ -1079,8 +1075,9 @@ function switchTab(tab) {
     if (!fm.value) fm.value = new Date().toISOString().substring(0,7);
     renderAll();
   }
-  if (tab==='settings' && mapsReady) {
-    setupSearch('home-search');
+  if (tab==='settings') {
+    applyHomeSettings();
+    if (mapsReady) setupSearch('home-search');
   }
 }
 
@@ -1563,9 +1560,10 @@ function showHomeTripBtn() {
       .find(t => t.endCompany !== settings.homeName);
     const fromName = lastTrip?.endCompany || lastEndCompany || '（請先儲存一筆行程）';
     if (info) info.textContent = fromName + ' → ' + settings.homeName;
+    // home-from-search 讓使用者自己填，不自動帶入名稱（名稱不是地址）
     const fromSearchEl = document.getElementById('home-from-search');
-    if (fromSearchEl && !fromSearchEl.value) {
-      fromSearchEl.value = lastEndSearch || fromName;
+    if (fromSearchEl && !fromSearchEl.value && lastEndSearch) {
+      fromSearchEl.value = lastEndSearch; // 只有上次有搜尋地址才帶入
     }
   } else {
     section.style.display = 'none';
@@ -1583,6 +1581,18 @@ function updateHomePreview() {
     prev.style.display = 'block';
   } else {
     prev.style.display = 'none';
+  }
+}
+
+function applyHomeSettings() {
+  // 設定頁顯示住家地址
+  const homeSearchEl = document.getElementById('home-search');
+  const homeAddrShow = document.getElementById('home-addr-show');
+  const homeDistBox  = document.getElementById('home-dist-box');
+  if (settings.homeAddr) {
+    if (homeSearchEl) homeSearchEl.value = settings.homeAddr;
+    if (homeAddrShow) homeAddrShow.textContent = settings.homeAddr;
+    if (homeDistBox)  homeDistBox.style.display = 'block';
   }
 }
 
@@ -1609,8 +1619,9 @@ async function saveHomeSettings() {
     // 顯示已儲存的地址
     document.getElementById('home-addr-show').textContent = settings.homeAddr;
     document.getElementById('home-dist-box').style.display = 'block';
+    applyHomeSettings();
     showHomeTripBtn();
-    toast('✓ 住家設定已儲存');
+    toast('✓ 住家設定已儲存，下次登入自動載入');
   } catch(e) { toast('儲存失敗：'+e.message, true); }
 }
 
