@@ -736,7 +736,7 @@ async function ensureSheets() {
 // ══ 設定 ══
 async function loadSettings() {
   try {
-    const d = await sGet(`${SET_SHEET}!A:D`);
+    const d = await sGet(`${SET_SHEET}!A:G`);
     const rows = (d.values||[]).slice(1);
     const row  = rows.find(r=>r[0]===userEmail);
     settings.name     = row?.[1] || '';
@@ -756,8 +756,6 @@ async function loadSettings() {
   if (addRateEl) addRateEl.value = settings.rate;
   updateHomePreview();
   showHomeTripBtn();
-  // 設定頁的住家搜尋框
-  // home-search autocomplete 由 initMaps 或 switchTab 時初始化
 }
 
 async function saveSettings() {
