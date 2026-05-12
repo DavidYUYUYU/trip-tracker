@@ -289,6 +289,14 @@ select:focus{border-color:var(--accent)}
       <div class="card" style="margin-bottom:0">
         <div class="card-title">🏠 回家里程</div>
         <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:10px" id="home-trip-info"></div>
+        <div class="field">
+          <label style="color:var(--accent2)">📍 出發地址（Google Maps 用）</label>
+          <input type="text" id="home-from-search" placeholder="輸入出發地址搜尋" autocomplete="off" style="border-color:var(--accent2)">
+        </div>
+        <div class="row2 field">
+          <div><label>出發時間</label><input type="time" id="home-start-time" style="font-size:14px;padding:10px 8px"></div>
+          <div><label>結束時間</label><input type="time" id="home-end-time" style="font-size:14px;padding:10px 8px"></div>
+        </div>
         <button class="btn btn-secondary" id="home-calc-btn" onclick="calcHomeByMaps()" style="margin-bottom:8px">
           🗺️ 用 Google Maps 計算回家里程
         </button>
@@ -746,7 +754,7 @@ async function loadSettings() {
   updateHomePreview();
   showHomeTripBtn();
   // 設定頁的住家搜尋框
-  if (mapsReady) setupSearch('home-search');
+  // home-search autocomplete 由 initMaps 或 switchTab 時初始化
 }
 
 async function saveSettings() {
@@ -1064,6 +1072,9 @@ function switchTab(tab) {
     if (!fm.value) fm.value = new Date().toISOString().substring(0,7);
     renderAll();
   }
+  if (tab==='settings' && mapsReady) {
+    setupSearch('home-search');
+  }
 }
 
 function getFiltered() {
@@ -1141,7 +1152,11 @@ function initMaps() {
   mapsReady = true;
   setupSearch('start-search');
   setupSearch('end-search');
-  setupSearch('home-search');
+  setupSearch('home-from-search');
+  // home-search 在設定頁，Maps 載入後才初始化
+  if (document.getElementById('home-search')) {
+    setupSearch('home-search');
+  }
 }
 window.initMaps = initMaps;
 
@@ -1537,8 +1552,13 @@ function showHomeTripBtn() {
     const lastTrip = [...trips]
       .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
       .find(t => t.endCompany !== settings.homeName);
-    const from = lastTrip?.endCompany || lastEndCompany || '（請先儲存一筆行程）';
-    info.textContent = from + ' → ' + settings.homeName;
+    const fromName = lastTrip?.endCompany || lastEndCompany || '（請先儲存一筆行程）';
+    info.textContent = fromName + ' → ' + settings.homeName;
+    // 自動帶入出發搜尋地址
+    const fromSearchEl = document.getElementById('home-from-search');
+    if (fromSearchEl && !fromSearchEl.value) {
+      fromSearchEl.value = lastEndSearch || fromName;
+    }
   } else {
     wrap.style.display = 'none';
   }
@@ -1586,14 +1606,11 @@ async function saveHomeSettings() {
 }
 
 async function calcHomeByMaps() {
-  // 用最近一筆行程的抵達搜尋地址當出發點
-  const lastTrip2 = [...trips]
-    .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
-    .find(t => t.endCompany !== settings.homeName);
-  const fromVal = lastEndSearch || lastEndCompany || lastTrip2?.endCompany || '';
+  // 從「出發地址」欄位讀取（使用者可確認或修改）
+  const fromVal = document.getElementById('home-from-search').value.trim();
   const toVal   = settings.homeAddr;
 
-  if (!fromVal) { document.getElementById('home-maps-status').textContent = '⚠ 請先儲存一筆行程'; return; }
+  if (!fromVal) { document.getElementById('home-maps-status').textContent = '⚠ 請填寫出發地址'; return; }
   if (!toVal)   { document.getElementById('home-maps-status').textContent = '⚠ 請先在設定頁設定住家地址'; return; }
   if (!mapsReady){ document.getElementById('home-maps-status').textContent = '⚠ Google Maps 尚未載入'; return; }
 
@@ -1648,6 +1665,8 @@ async function addHomeTrip() {
     .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
     .find(t => t.endCompany !== settings.homeName);
   const from = lastTrip?.endCompany || lastEndCompany || '出差地點';
+  const startTime = document.getElementById('home-start-time').value;
+  const endTime   = document.getElementById('home-end-time').value;
   const rate = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
   const mileCost = rate > 0 ? +(homeDist * rate).toFixed(0) : 0;
   const id  = Date.now().toString();
@@ -1657,9 +1676,9 @@ async function addHomeTrip() {
   saveBtn.disabled = true;
   try {
     await sAppend(`${TRIP_SHEET}!A:K`, [[
-      id, userEmail, date, from, '', '', settings.homeName, '', homeDist.toFixed(1), '', now
+      id, userEmail, date, from, startTime, '', settings.homeName, endTime, homeDist.toFixed(1), '', now
     ]]);
-    trips.unshift({ id, date, startCompany: from, startTime:'', waypoints:'', endCompany: settings.homeName, endTime:'', dist: homeDist, area:'' });
+    trips.unshift({ id, date, startCompany: from, startTime, waypoints:'', endCompany: settings.homeName, endTime, dist: homeDist, area:'' });
 
     if (mileCost > 0) {
       const expId = (Date.now()+1).toString();
@@ -1670,6 +1689,9 @@ async function addHomeTrip() {
     }
 
     // 重置
+    document.getElementById('home-start-time').value = '';
+    document.getElementById('home-end-time').value = '';
+    document.getElementById('home-from-search').value = '';
     homeDist = 0;
     document.getElementById('home-dist-show').textContent = '—';
     document.getElementById('home-dist-result').style.display = 'none';
