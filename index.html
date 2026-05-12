@@ -257,22 +257,54 @@ select:focus{border-color:var(--accent)}
 
     <div class="card">
       <div class="card-title">📏 里程計算</div>
+
+      <!-- 車輛切換 -->
       <div class="vtoggle">
         <button class="vbtn active" id="v-car" onclick="setVehicle('car')">🚗 汽車</button>
         <button class="vbtn" id="v-moto" onclick="setVehicle('moto')">🛵 機車</button>
       </div>
-      <div id="vehicle-hint" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:10px">汽車模式：走高速公路</div>
-      <button onclick="calcByMaps()" id="maps-btn" class="btn btn-secondary">🗺️ Google Maps 計算行車里程</button>
-      <div id="maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:8px;text-align:center;min-height:14px"></div>
-      <div class="dist-box">
-        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">里程數 KM</span>
+      <div id="vehicle-hint" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">汽車模式：走高速公路</div>
+
+      <!-- 出差里程計算 -->
+      <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:6px;letter-spacing:0.05em">🗺️ 出差里程</div>
+      <button onclick="calcByMaps()" id="maps-btn" class="btn btn-secondary" style="margin-bottom:6px">計算行車里程</button>
+      <div id="maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px;text-align:center;min-height:14px"></div>
+      <div class="dist-box" style="margin-bottom:10px">
+        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">出差里程 KM</span>
         <div style="display:flex;align-items:baseline;gap:4px">
           <span class="dist-val" id="dist-show">—</span>
           <span style="font-size:12px;color:var(--text2)">km</span>
         </div>
       </div>
-      <!-- 費率（直接在新增頁面顯示和編輯）-->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+
+      <!-- 分隔線 -->
+      <div id="home-section" style="display:none">
+        <div style="border-top:1px dashed var(--border);margin:4px 0 12px"></div>
+
+        <!-- 回家里程計算 -->
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:6px;letter-spacing:0.05em">🏠 回家里程</div>
+        <div style="font-size:12px;color:var(--accent);font-family:var(--mono);margin-bottom:8px" id="home-trip-info"></div>
+        <div class="field">
+          <label style="color:var(--accent2)">📍 出發地址（Google Maps 用）</label>
+          <input type="text" id="home-from-search" placeholder="輸入出發地址搜尋" autocomplete="off" style="border-color:var(--accent2)">
+        </div>
+        <div class="row2 field">
+          <div><label>出發時間</label><input type="time" id="home-start-time" style="font-size:14px;padding:10px 8px"></div>
+          <div><label>結束時間</label><input type="time" id="home-end-time" style="font-size:14px;padding:10px 8px"></div>
+        </div>
+        <button class="btn btn-secondary" id="home-calc-btn" onclick="calcHomeByMaps()" style="margin-bottom:6px">計算回家里程</button>
+        <div id="home-maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px;text-align:center;min-height:14px"></div>
+        <div id="home-dist-result" style="display:none" class="dist-box" style="margin-bottom:10px">
+          <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">回家里程 KM</span>
+          <div style="display:flex;align-items:baseline;gap:4px">
+            <span style="font-family:var(--mono);font-size:20px;color:var(--accent);font-weight:500" id="home-dist-show">—</span>
+            <span style="font-size:12px;color:var(--text2)">km</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 費率 -->
+      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">費率（元/km）</span>
         <input type="number" id="add-rate" placeholder="例：7" inputmode="decimal" step="0.5"
           style="width:100px;text-align:right;font-size:16px;padding:6px 10px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--accent);font-family:var(--mono)"
@@ -285,34 +317,9 @@ select:focus{border-color:var(--accent)}
     </div>
 
     <button class="btn btn-primary" id="save-btn" onclick="addTrip()">✓ 儲存行程</button>
-    <div id="home-trip-btn-wrap" style="display:none;margin-top:10px">
-      <div class="card" style="margin-bottom:0">
-        <div class="card-title">🏠 回家里程</div>
-        <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:10px" id="home-trip-info"></div>
-        <div class="field">
-          <label style="color:var(--accent2)">📍 出發地址（Google Maps 用）</label>
-          <input type="text" id="home-from-search" placeholder="輸入出發地址搜尋" autocomplete="off" style="border-color:var(--accent2)">
-        </div>
-        <div class="row2 field">
-          <div><label>出發時間</label><input type="time" id="home-start-time" style="font-size:14px;padding:10px 8px"></div>
-          <div><label>結束時間</label><input type="time" id="home-end-time" style="font-size:14px;padding:10px 8px"></div>
-        </div>
-        <button class="btn btn-secondary" id="home-calc-btn" onclick="calcHomeByMaps()" style="margin-bottom:8px">
-          🗺️ 用 Google Maps 計算回家里程
-        </button>
-        <div id="home-maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px;text-align:center;min-height:14px"></div>
-        <div id="home-dist-result" style="display:none;background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">回家里程 KM</span>
-          <div style="display:flex;align-items:baseline;gap:4px">
-            <span style="font-family:var(--mono);font-size:20px;color:var(--accent);font-weight:500" id="home-dist-show">—</span>
-            <span style="font-size:12px;color:var(--text2)">km</span>
-          </div>
-        </div>
-        <button class="btn btn-primary" id="home-save-btn" onclick="addHomeTrip()" style="display:none">
-          ✓ 新增回家里程紀錄
-        </button>
-      </div>
-    </div>
+    <button class="btn btn-primary" id="home-save-btn" onclick="addHomeTrip()" style="display:none;margin-top:10px;background:var(--surface2);border:1px solid var(--accent);color:var(--accent)">
+      🏠 新增回家里程紀錄
+    </button>
   </div>
 
   <!-- ══ 紀錄 ══ -->
@@ -1544,23 +1551,25 @@ let lastEndCompany = ''; // 上一筆行程的抵達名稱
 let lastEndSearch  = ''; // 上一筆行程的抵達搜尋地址
 
 function showHomeTripBtn() {
-  const wrap = document.getElementById('home-trip-btn-wrap');
-  const info  = document.getElementById('home-trip-info');
-  if (!wrap) return;
+  const section = document.getElementById('home-section');
+  const saveBtn = document.getElementById('home-save-btn');
+  const info    = document.getElementById('home-trip-info');
+  if (!section) return;
   if (settings.homeName && settings.homeAddr) {
-    wrap.style.display = 'block';
+    section.style.display = 'block';
+    if (saveBtn) saveBtn.style.display = 'block';
     const lastTrip = [...trips]
       .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
       .find(t => t.endCompany !== settings.homeName);
     const fromName = lastTrip?.endCompany || lastEndCompany || '（請先儲存一筆行程）';
-    info.textContent = fromName + ' → ' + settings.homeName;
-    // 自動帶入出發搜尋地址
+    if (info) info.textContent = fromName + ' → ' + settings.homeName;
     const fromSearchEl = document.getElementById('home-from-search');
     if (fromSearchEl && !fromSearchEl.value) {
       fromSearchEl.value = lastEndSearch || fromName;
     }
   } else {
-    wrap.style.display = 'none';
+    section.style.display = 'none';
+    if (saveBtn) saveBtn.style.display = 'none';
   }
 }
 
