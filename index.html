@@ -253,6 +253,54 @@ select:focus{border-color:var(--accent)}
           </div>
         </div>
       </div>
+
+      <!-- 回家里程（設定住家後顯示）-->
+      <div id="home-route-section" style="display:none">
+        <div style="border-top:1px dashed var(--border);margin:8px 0 10px"></div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px">🏠 回家里程（選填）</div>
+        <div class="route-line">
+          <div class="route-dot-col">
+            <div style="width:10px;height:10px;border-radius:50%;background:var(--accent3);border:2px solid var(--accent3)"></div>
+            <div class="route-vline"></div>
+          </div>
+          <div style="flex:1;padding-bottom:4px">
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:6px">
+              <div>
+                <label>起始（抵達地點自動帶入）</label>
+                <input type="text" id="home-from-name" placeholder="自動帶入抵達名稱" readonly
+                  style="background:var(--surface2);color:var(--text2);cursor:default">
+              </div>
+              <div style="width:130px">
+                <label>出發時間</label>
+                <input type="time" id="home-start-time" style="font-size:14px;padding:10px 8px">
+              </div>
+            </div>
+            <div>
+              <label style="color:var(--accent2)">📍 搜尋地點（自動帶入）</label>
+              <input type="text" id="home-from-search" placeholder="自動帶入抵達搜尋地點" autocomplete="off" style="border-color:var(--accent2)">
+            </div>
+          </div>
+        </div>
+        <div class="route-line">
+          <div class="route-dot-col">
+            <div class="route-vline"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#a78bfa;border:2px solid #a78bfa"></div>
+          </div>
+          <div style="flex:1">
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+              <div>
+                <label>住家（自動帶入）</label>
+                <input type="text" id="home-dest-name" placeholder="自動帶入住家名稱" readonly
+                  style="background:var(--surface2);color:var(--text2);cursor:default">
+              </div>
+              <div style="width:130px">
+                <label>結束時間</label>
+                <input type="time" id="home-end-time" style="font-size:14px;padding:10px 8px">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -265,8 +313,8 @@ select:focus{border-color:var(--accent)}
       </div>
       <div id="vehicle-hint" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">汽車模式：走高速公路</div>
 
-      <!-- 出差里程計算 -->
-      <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:6px;letter-spacing:0.05em">🗺️ 出差里程</div>
+      <!-- 出差里程 -->
+      <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:6px">🗺️ 出差里程</div>
       <button onclick="calcByMaps()" id="maps-btn" class="btn btn-secondary" style="margin-bottom:6px">計算行車里程</button>
       <div id="maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px;text-align:center;min-height:14px"></div>
       <div class="dist-box" style="margin-bottom:10px">
@@ -277,24 +325,13 @@ select:focus{border-color:var(--accent)}
         </div>
       </div>
 
-      <!-- 分隔線 -->
+      <!-- 回家里程計算（設定住家後顯示）-->
       <div id="home-section" style="display:none">
-        <div style="border-top:1px dashed var(--border);margin:4px 0 12px"></div>
-
-        <!-- 回家里程計算 -->
-        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:6px;letter-spacing:0.05em">🏠 回家里程</div>
-        <div style="font-size:12px;color:var(--accent);font-family:var(--mono);margin-bottom:8px" id="home-trip-info"></div>
-        <div class="field">
-          <label style="color:var(--accent2)">📍 出發地址（Google Maps 用）</label>
-          <input type="text" id="home-from-search" placeholder="輸入出發地址搜尋" autocomplete="off" style="border-color:var(--accent2)">
-        </div>
-        <div class="row2 field">
-          <div><label>出發時間</label><input type="time" id="home-start-time" style="font-size:14px;padding:10px 8px"></div>
-          <div><label>結束時間</label><input type="time" id="home-end-time" style="font-size:14px;padding:10px 8px"></div>
-        </div>
+        <div style="border-top:1px solid var(--border);margin:4px 0 12px"></div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:6px">🏠 回家里程</div>
         <button class="btn btn-secondary" id="home-calc-btn" onclick="calcHomeByMaps()" style="margin-bottom:6px">計算回家里程</button>
         <div id="home-maps-status" style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px;text-align:center;min-height:14px"></div>
-        <div id="home-dist-result" style="display:none" class="dist-box" style="margin-bottom:10px">
+        <div id="home-dist-result" style="display:none" class="dist-box">
           <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">回家里程 KM</span>
           <div style="display:flex;align-items:baseline;gap:4px">
             <span style="font-family:var(--mono);font-size:20px;color:var(--accent);font-weight:500" id="home-dist-show">—</span>
@@ -304,7 +341,7 @@ select:focus{border-color:var(--accent)}
       </div>
 
       <!-- 費率 -->
-      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;display:flex;align-items:center;justify-content:space-between">
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:12px;color:var(--text2);font-family:var(--mono)">費率（元/km）</span>
         <input type="number" id="add-rate" placeholder="例：7" inputmode="decimal" step="0.5"
           style="width:100px;text-align:right;font-size:16px;padding:6px 10px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--accent);font-family:var(--mono)"
@@ -841,6 +878,11 @@ async function addTrip() {
     // 記住抵達地點供回家里程使用
     lastEndCompany = endCompany;
     lastEndSearch  = document.getElementById('end-search').value.trim() || endCompany;
+    // 自動更新回家里程的起始欄位
+    const hfn = document.getElementById('home-from-name');
+    const hfs = document.getElementById('home-from-search');
+    if (hfn) hfn.value = endCompany || '';
+    if (hfs && lastEndSearch) hfs.value = lastEndSearch;
 
     trips.unshift({ id, date, startCompany, startTime, waypoints, endCompany, endTime, dist:mapsDist, area });
 
@@ -1258,14 +1300,14 @@ function setVehicle(mode) {
 }
 
 async function calcByMaps() {
-  const startVal = document.getElementById('start-search').value.trim() || document.getElementById('start-company').value.trim();
-  const endVal   = document.getElementById('end-search').value.trim()   || document.getElementById('end-company').value.trim();
-  const status   = document.getElementById('maps-status');
-  const btn      = document.getElementById('maps-btn');
+  const status  = document.getElementById('maps-status');
+  const btn     = document.getElementById('maps-btn');
+  const startVal = document.getElementById('start-search').value.trim();
+  const endVal   = document.getElementById('end-search').value.trim();
 
-  if (!startVal) { status.textContent='⚠ 請填寫起始搜尋地點'; return; }
-  if (!endVal)   { status.textContent='⚠ 請填寫抵達搜尋地點'; return; }
-  if (!mapsReady){ status.textContent='⚠ Google Maps 尚未載入'; return; }
+  if (!startVal) { status.textContent = '⚠ 請填寫起始搜尋地點（📍 欄位）'; return; }
+  if (!endVal)   { status.textContent = '⚠ 請填寫抵達搜尋地點（📍 欄位）'; return; }
+  if (!mapsReady){ status.textContent = '⚠ Google Maps 尚未載入'; return; }
 
   btn.disabled=true; status.textContent='🗺️ 計算中...'; status.style.color='var(--accent3)';
 
@@ -1546,28 +1588,41 @@ let lastEndCompany = ''; // 上一筆行程的抵達名稱
 let lastEndSearch  = ''; // 上一筆行程的抵達搜尋地址
 
 function showHomeTripBtn() {
-  const section = document.getElementById('home-section');
-  const saveBtn = document.getElementById('home-save-btn');
-  const info    = document.getElementById('home-trip-info');
-  if (!section) return;
+  const routeSec = document.getElementById('home-route-section');
+  const homeSec  = document.getElementById('home-section');
+  const saveBtn  = document.getElementById('home-save-btn');
+  if (!routeSec) return;
+
   if (settings.homeName && settings.homeAddr) {
-    section.style.display = 'block';
+    routeSec.style.display = 'block';
+    if (homeSec) homeSec.style.display = 'block';
     if (saveBtn) saveBtn.style.display = 'block';
+
+    // 住家名稱自動帶入抵達名稱欄
+    const destEl = document.getElementById('home-dest-name');
+    if (destEl) destEl.value = settings.homeName;
+
+    // 上一筆抵達名稱和搜尋地址自動帶入起始欄
     const lastTrip = [...trips]
       .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
       .find(t => t.endCompany !== settings.homeName);
-    const fromName = lastTrip?.endCompany || lastEndCompany || '（請先儲存一筆行程）';
-    if (info) info.textContent = fromName + ' → ' + settings.homeName;
-    // home-from-search 讓使用者自己填，不自動帶入名稱（名稱不是地址）
+    const fromName   = lastEndCompany || lastTrip?.endCompany || '';
+    const fromSearch = lastEndSearch  || '';
+
+    const fromNameEl   = document.getElementById('home-from-name');
     const fromSearchEl = document.getElementById('home-from-search');
-    if (fromSearchEl && !fromSearchEl.value && lastEndSearch) {
-      fromSearchEl.value = lastEndSearch; // 只有上次有搜尋地址才帶入
-    }
+    if (fromNameEl)   fromNameEl.value   = fromName   || '（請先儲存一筆行程）';
+    if (fromSearchEl && fromSearch) fromSearchEl.value = fromSearch;
+
+    const info = document.getElementById('home-trip-info');
+    if (info) info.textContent = (fromName||'出差地點') + ' → ' + settings.homeName;
   } else {
-    section.style.display = 'none';
+    routeSec.style.display = 'none';
+    if (homeSec) homeSec.style.display = 'none';
     if (saveBtn) saveBtn.style.display = 'none';
   }
 }
+
 
 function updateHomePreview() {
   const name = document.getElementById('home-name')?.value.trim();
@@ -1677,12 +1732,9 @@ async function addHomeTrip() {
     toast('請先按「用 Google Maps 計算回家里程」', true); return;
   }
 
-  const date = document.getElementById('trip-date').value || new Date().toISOString().split('T')[0];
-  // 從最近一筆行程取得抵達地點名稱（排除回家行程本身）
-  const lastTrip = [...trips]
-    .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
-    .find(t => t.endCompany !== settings.homeName);
-  const from = lastTrip?.endCompany || lastEndCompany || '出差地點';
+  const date      = document.getElementById('trip-date').value || new Date().toISOString().split('T')[0];
+  // 從 home-from-name 欄位取得起始名稱
+  const from      = document.getElementById('home-from-name')?.value.trim() || lastEndCompany || '出差地點';
   const startTime = document.getElementById('home-start-time').value;
   const endTime   = document.getElementById('home-end-time').value;
   const rate = parseFloat(document.getElementById('add-rate').value) || parseFloat(settings.rate) || 0;
@@ -1710,6 +1762,7 @@ async function addHomeTrip() {
     document.getElementById('home-start-time').value = '';
     document.getElementById('home-end-time').value = '';
     document.getElementById('home-from-search').value = '';
+    document.getElementById('home-from-name').value = '';
     homeDist = 0;
     document.getElementById('home-dist-show').textContent = '—';
     document.getElementById('home-dist-result').style.display = 'none';
