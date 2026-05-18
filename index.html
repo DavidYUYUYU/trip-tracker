@@ -893,6 +893,7 @@ async function addTrip() {
     mapsDist = 0;
     document.getElementById('dist-show').textContent = '—';
     document.getElementById('maps-status').textContent = '';
+    document.getElementById('maps-status').style.color = 'var(--text2)';
 
     // 開啟費用輸入 Modal
     const tripInfo = `${date} ${startCompany} → ${endCompany||'—'}${distSnap>0?' ｜ '+distSnap.toFixed(1)+' km':''}`;
@@ -1296,7 +1297,11 @@ function setVehicle(mode) {
   document.getElementById('vehicle-hint').textContent = mode==='car'
     ? '汽車模式：走高速公路（最快路線）'
     : '機車模式：避開高速公路，走省道';
-  if (mapsDist>0) calcByMaps();
+  if (mapsDist > 0) {
+    // 提示使用者重新計算
+    document.getElementById('maps-status').textContent = '車輛模式已更換，請重新計算里程';
+    document.getElementById('maps-status').style.color = 'var(--accent3)';
+  }
 }
 
 async function calcByMaps() {
