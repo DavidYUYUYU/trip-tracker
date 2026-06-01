@@ -1418,8 +1418,15 @@ async function runExport() {
   if (!filtered.length) { toast('沒有資料可匯出',true); return; }
 
   const userName   = settings.name || userEmail.split('@')[0];
-  const monthLabel = m ? (()=>{const[y,mo]=m.split('-');return y+'年'+parseInt(mo)+'月';})() : '';
-  const pdfTitle   = monthLabel ? userName+' '+parseInt(m.split('-')[1])+'月出差費用' : userName+' 出差費用';
+  // 自動判斷月份：選了月份用選的，沒選就從資料找最多的那個月
+  let autoMonth = m;
+  if (!autoMonth && filtered.length) {
+    const monthCount = {};
+    filtered.forEach(t => { const mo = t.date?.substring(0,7); if(mo) monthCount[mo]=(monthCount[mo]||0)+1; });
+    autoMonth = Object.entries(monthCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+  }
+  const monthLabel = autoMonth ? (()=>{const[y,mo]=autoMonth.split('-');return y+'年'+parseInt(mo)+'月';})() : '';
+  const pdfTitle   = monthLabel ? userName+' '+parseInt(autoMonth.split('-')[1])+'月出差費用' : userName+' 出差費用';
 
   const gc = id => document.getElementById(id)?.checked;
   const colDefs = [
@@ -1442,7 +1449,7 @@ async function runExport() {
   const cols    = colDefs.filter(c=>c.checked);
   const headers = cols.map(c=>c.label);
   const rows    = filtered.map(t => cols.map(c => c.val(t)));
-  const sumRow  = ['合計', ...cols.slice(1).map(c => c.num ? filtered.reduce((a,t)=>a+(+c.val(t)||0),0) : '')];
+  const sumRow  = ['合計', ...cols.slice(1).map(c => c.num ? (c.key==='dist' ? Math.ceil(filtered.reduce((a,t)=>a+(+c.val(t)||0),0)) : filtered.reduce((a,t)=>a+(+c.val(t)||0),0)) : '')];
   const sumFn   = key => filtered.reduce((a,t)=>a+(+colDefs.find(c=>c.key===key)?.val(t)||0),0);
 
   if (type==='excel') {
@@ -1489,7 +1496,8 @@ async function runExport() {
     let footHtml = '<tr class="foot"><td>合計</td>';
     cols.slice(1).forEach(c=>{
       if (c.num) {
-        const s = filtered.reduce((a,t)=>a+(+c.val(t)||0),0);
+        const raw = filtered.reduce((a,t)=>a+(+c.val(t)||0),0);
+        const s   = c.key==='dist' ? Math.ceil(raw) : raw;
         footHtml += '<td class="r">'+s.toLocaleString()+'</td>';
       } else {
         footHtml += '<td></td>';
