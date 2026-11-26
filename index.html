@@ -1205,6 +1205,34 @@ function initMaps() {
 }
 window.initMaps = initMaps;
 
+// 搜尋建議：優先用新版 Places API (New)，失敗再退回舊版；兩者都失敗就顯示原因
+function fetchPlaceNames(val, cb) {
+  const legacy = () => {
+    try {
+      const svc = new google.maps.places.AutocompleteService();
+      svc.getPlacePredictions({input:val,componentRestrictions:{country:'tw'},language:'zh-TW'},(preds,status)=>{
+        if (status==='OK' && preds) cb(preds.map(p=>({main:p.structured_formatting?.main_text||p.description, sub:p.structured_formatting?.secondary_text||''})),'OK');
+        else if (status==='ZERO_RESULTS') cb([],'OK');
+        else cb(null,status||'ERROR');
+      });
+    } catch(e) { cb(null,'ERROR'); }
+  };
+  const AS = google.maps.places && google.maps.places.AutocompleteSuggestion;
+  if (!AS) { legacy(); return; }
+  AS.fetchAutocompleteSuggestions({input:val,includedRegionCodes:['tw'],language:'zh-TW'})
+    .then(r=>{
+      const items=(r.suggestions||[]).filter(s=>s.placePrediction).map(s=>({
+        main:(s.placePrediction.mainText&&s.placePrediction.mainText.text)||(s.placePrediction.text&&s.placePrediction.text.text)||'',
+        sub:(s.placePrediction.secondaryText&&s.placePrediction.secondaryText.text)||''}));
+      cb(items,'OK');
+    })
+    .catch(()=>legacy());
+}
+function showPlaceError(box, status) {
+  box.style.display='block';
+  box.innerHTML='<div style="padding:10px 14px;font-size:12px;color:#ffb86b;line-height:1.5">⚠ 地點搜尋無法使用（'+status+'）<br>請到 Google Cloud 啟用「Places API (New)」，並確認 API 金鑰限制有包含它</div>';
+}
+
 function setupSearch(id) {
   const input = document.getElementById(id);
   if (!input||!mapsReady) return;
@@ -1216,13 +1244,14 @@ function setupSearch(id) {
   function show(val) {
     if(!val){ box.style.display='none'; return; }
     pos();
-    svc.getPlacePredictions({input:val,componentRestrictions:{country:'tw'},language:'zh-TW'},(preds,status)=>{
+    fetchPlaceNames(val,(preds,status)=>{
       box.innerHTML='';
-      if(status!==google.maps.places.PlacesServiceStatus.OK||!preds){box.style.display='none';return;}
+      if(status!=='OK'){showPlaceError(box,status);return;}
+      if(!preds||!preds.length){box.style.display='none';return;}
       box.style.display='block';
       preds.slice(0,6).forEach(p=>{
-        const main=p.structured_formatting?.main_text||p.description;
-        const sub=p.structured_formatting?.secondary_text||'';
+        const main=p.main;
+        const sub=p.sub;
         const item=document.createElement('div');
         item.style.cssText='padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
         item.innerHTML='<div style="font-weight:600">'+main+'</div>'+(sub?'<div style="font-size:11px;color:#8b91a8;margin-top:2px">'+sub+'</div>':'');
@@ -1252,12 +1281,13 @@ function setupSearchEl(input) {
     const val=input.value.trim();
     if(!val){box.style.display='none';return;}
     pos();
-    svc.getPlacePredictions({input:val,componentRestrictions:{country:'tw'},language:'zh-TW'},(preds,status)=>{
+    fetchPlaceNames(val,(preds,status)=>{
       box.innerHTML='';
-      if(status!==google.maps.places.PlacesServiceStatus.OK||!preds){box.style.display='none';return;}
+      if(status!=='OK'){showPlaceError(box,status);return;}
+      if(!preds||!preds.length){box.style.display='none';return;}
       box.style.display='block';
       preds.slice(0,5).forEach(p=>{
-        const main=p.structured_formatting?.main_text||p.description;
+        const main=p.main;
         const item=document.createElement('div');
         item.style.cssText='padding:10px 14px;cursor:pointer;font-size:13px;color:#e8ecf4;border-bottom:1px solid #2e3352;';
         item.textContent=main;
